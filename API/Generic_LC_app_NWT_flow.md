@@ -1,4 +1,4 @@
-# Generic LC app flow - inter-RBC (cross border with make-before-brake constraint 1 RM 1 MCx client) 
+# Generic LC app flow - inter-RBC (cross border with make-before-break constraint 1 RM 1 MCx client) 
 # Network Transition occuring after Hand Over
 
 ## High-level flow
@@ -66,7 +66,7 @@ critical Recovery of Session (S3 OB side S4 TS side)
 	Note over O,T2: Replacement of Bearer for Session S2 OB side ↔ S4 TS
 end
 ```
-# Generic LC app flow - inter-RBC (cross border with make-before-brake constraint 1 RM 1 MCx client) 
+# Generic LC app flow - inter-RBC (cross border with make-before-break constraint 1 RM 1 MCx client) 
 # Network Transition occuring before Hand Over
 
 ## High-level flow
@@ -136,7 +136,7 @@ end
 Note over A,B1: → ended connection with TS DATA app 1
 ```
 
-# Generic LC app flow - inter-RBC (cross border with make-before-brake constraint 1 RM 1 MCx client) 
+# Generic LC app flow - inter-RBC (cross border with make-before-break constraint 1 RM 1 MCx client) 
 # Network Transition occuring during Hand Over
 
 ## High-level flow

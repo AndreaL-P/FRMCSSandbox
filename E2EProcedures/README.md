@@ -156,4 +156,60 @@ loop Type I or Type III applications
 end
 
 ```
+# Inter-FRMCS Domain Transition
 
+```mermaid
+
+sequenceDiagram
+participant AL1 as OB LC App (no session)
+participant AL2 as OB LC App (active)
+participant AT as OB TC App
+participant O as OB FRMCS
+participant M1 as MCX1
+participant M2 as MCX2
+participant T1 as TS GW1
+participant T2 as TS GW2
+%participant B1 as RBC1
+%participant B2 as RBC2
+
+%par OB setup
+%	Note over O: Start of Operation 
+%	Note over AL1,O: OBapp local binding
+%  	Note over AL2,O: OBapp local binding
+%  	Note over AL2,T1: active session S1
+%  	Note over O,M1:	MC user registration
+%and TS setup
+%	%Note over B1,T1: TSapp local binding
+%	%Note over B2,T2: TSapp local binding
+%	Note over T1,M1: MC user registration
+%	Note over T2,M2: MC user registration
+%end
+
+% BXL
+Note over O,M1: NTT to move to Domain 2  [765-2]
+Note over O,M2: acquisition of FRMCS Transport Domain 2  [765-1]
+
+% BXL - TC
+loop Tight Coupled Application
+  O-->>AT: SSE FTD_AVL [Domain 2]  [765-3]
+  Note over AT,M2:  MC user migration FSD1 → FSD2 [765-2]
+end
+
+% BXL - LC
+loop all non-home-routed LC applications 
+  opt New Domain is within application's Domain of applicability
+   Note over O,M2: MC user migration FSD1 → FSD2 [765-2]
+   O-->>AL1: SSE FSD_AVL [Domain 2]  [765-3]
+    opt at least one open session
+      Note over O,T1:  ongoing MCX call re-establishment
+    end
+  end
+  opt New Domain is not within application's Domain of applicability
+    Note over O,T1:  ongoing MCX csession/transaction termination [765-2]
+  end
+end
+loop home-routed LC applications
+    Note over O,M2:Home-routed transport path establishment in Target FTD [765-1]
+    Note over O,T1: Recovery of on-going MCx Calls in FSD 
+end
+```

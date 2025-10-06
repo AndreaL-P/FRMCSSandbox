@@ -1,0 +1,124 @@
+`````mermaid
+sequenceDiagram
+    %% === Phase 1: Establishment of MCx session via HPLMN A ===
+    participant UE_A as UE A
+    participant GWF_A as GWF (UE A)
+    participant gNB_A as gNodeB A (HPLMN A)
+    participant AMF_A as AMF (HPLMN A)
+    participant SMF_A as SMF (HPLMN A)
+    participant IMS as IMS/SIP Proxy (HPLMN A)
+    participant SCC_AS as SCC AS
+    participant MCX_AS as MCx Server
+    participant UE_B as UE B
+    participant gNB_B as gNodeB B (HPLMN B)
+    participant AMF_B as AMF (HPLMN B)
+    participant SMF_B as SMF (HPLMN B)
+
+    Note over UE_A,UE_B: **Phase 1: Establishment of MCx session via HPLMN A**
+
+    %% RAN - Radio Connection + 5G Access
+    UE_A->>gNB_A: RRC Connection Request/Setup/Complete (TS 38.331)
+    gNB_A->>AMF_A: NGAP Initial UE Message (TS 38.413)
+
+    %% NAS - Authentication and Registration
+    UE_A->>AMF_A: Registration Request (NAS, TS 24.501 5.5.1.2)
+    AMF_A->>UE_A: Authentication, Security (NAS)
+    AMF_A->>UE_A: Registration Accept
+
+    %% NAS - PDU Session for Data
+    UE_A->>AMF_A: PDU Session Establishment Req (NAS, TS 24.501 6.4.1.2)
+    AMF_A->>SMF_A: Create Session (Nsmf-)
+    SMF_A->>gNB_A: Path Setup
+
+    %% RAN
+    gNB_A->>UE_A: PDU Session Activation
+
+    %% IMS/SIP - Establishment of MCx Voice Service
+    UE_A->>IMS: SIP REGISTER (TS 24.229, TS 33.203)
+    IMS->>UE_A: SIP 200 OK
+    UE_A->>MCX_AS: SIP INVITE (via IMS, TS 23.280 Annex B)
+    MCX_AS->>UE_B: SIP INVITE
+    UE_B->>MCX_AS: SIP 200 OK
+    MCX_AS->>UE_A: SIP 200 OK
+    Note over UE_A,MCX_AS: **MCx session active, anchored in SCC AS (TS 23.237 5.3.1)**
+
+    UE_A->>SCC_AS: Establishment of SCC AS anchor (via IMS)
+
+    %% === Phase 2: HPLMN Change via Idle Mode & GWF Selection ===
+
+    Note over UE_A,MCX_AS: **Phase 2: HPLMN Change via Idle Mode & GWF-based Selection**
+
+    %% Decision from Gateway Function to change HPLMN
+    GWF_A->>GWF_A: Decision to change HPLMN
+    Note right of GWF_A: Network quality analysis, policy rules, etc
+    %% Upper layers request to release connection
+    GWF_A->>UE_A: Upper layers request RRC connection release
+    Note right of UE_A: TS 38.331 5.3.9 - UE initiated connection release
+    
+    %% Going to Idle mode per UE request
+    UE_A->>gNB_A: RRCRelease Request
+    gNB_A->>UE_A: RRCRelease
+    Note right of UE_A: UE enters RRC_IDLE state
+
+    %% Service interruption starts here
+    Note right of UE_A: MCx service temporarily interrupted
+
+    %% Network Scanning & Selection driven by GWF
+    GWF_A->>UE_A: Initiate PLMN scan
+    UE_A->>UE_A: Scan available PLMNs (TS 38.304)
+    UE_A->>GWF_A: Report available PLMNs
+    GWF_A->>GWF_A: Execute PLMN prioritization algorithm
+    Note right of GWF_A: GWF applies prioritization rules based on policy, signal strength, etc.
+    GWF_A->>UE_A: Select HPLMN B
+    UE_A->>UE_A: Apply HPLMN B selection
+
+    %% Reestablish connection to new PLMN
+    UE_A->>gNB_B: RACH procedure (TS 38.321)
+    UE_A->>gNB_B: RRC Connection Request
+    gNB_B->>UE_A: RRC Connection Setup
+    UE_A->>gNB_B: RRC Connection Setup Complete
+
+    %% NAS - Authentication and Registration with HPLMN B
+    UE_A->>AMF_B: Registration Request (with old GUTI)
+    AMF_B->>UE_A: Authentication & Security Procedures
+    AMF_B->>UE_A: Registration Accept
+
+    %% NAS - Create new PDU Session in HPLMN B
+    UE_A->>AMF_B: PDU Session Establishment Request (new)
+    AMF_B->>SMF_B: Create PDU Session
+    SMF_B->>gNB_B: PDU Session Resource Setup
+    gNB_B->>UE_A: RRC Reconfiguration
+    UE_A->>gNB_B: RRC Reconfiguration Complete
+    AMF_B->>UE_A: PDU Session Establishment Accept
+
+    %% IMS/SIP - Session Recovery via SCC AS
+    GWF_A->>UE_A: Initiate IMS registration and session recovery
+    UE_A->>IMS: SIP REGISTER (to HPLMN B IMS)
+    IMS->>UE_A: SIP 200 OK
+    
+    %% Using STI to recover/transfer MCx session
+    UE_A->>SCC_AS: SIP INVITE with STI (Session Transfer Identifier, TS 23.237 6.3.2.1)
+    Note right of UE_A: STI retrieved from GWF stored session info
+    SCC_AS->>SCC_AS: Identify session to be transferred (TS 23.237 6.3.2.1.4)
+    
+    SCC_AS->>MCX_AS: Update media path to new network
+    MCX_AS->>UE_B: Media path update notification (optional)
+    
+    SCC_AS->>UE_A: SIP 200 OK (Session transferred successfully)
+
+    %% === Phase 3: UE_A connected to HPLMN B, MCx session maintained ===
+
+    Note over UE_A,UE_B: **Phase 3: UE A connected to HPLMN B, MCx session active**
+
+    %% RAN
+    UE_A->>gNB_B: Data/Media flows (restored)
+
+    %% NAS
+    UE_A->>AMF_B: Stable connection, new PDU session established (TS 24.501)
+
+    %% IMS/SIP/MCx
+    UE_A->>SCC_AS: SIP session reanchored to new HPLMN, continuous media via MCx Server (TS 23.280 Annex B)
+    SCC_AS->>MCX_AS: Updated media flow path
+    MCX_AS->>UE_B: Continuous media flows
+    Note over UE_A,UE_B: End-to-end MCx service session between UE_A and UE_B maintained, with re-anchoring on HPLMN B after temporary interruption.
+    Note over UE_A,UE_B: GWF-controlled PLMN selection ensures optimal network choice based on policy rules and current conditions.

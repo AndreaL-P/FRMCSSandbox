@@ -1,3 +1,4 @@
+```mermaid
 sequenceDiagram
     Title Transport Domain Change with active MCx session
     %%{ init: { 'themeVariables':{ 'sequenceNumberFontSize':'13' } } }%%

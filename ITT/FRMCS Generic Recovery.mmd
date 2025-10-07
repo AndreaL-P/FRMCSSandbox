@@ -1,0 +1,50 @@
+sequenceDiagram
+Title Failure recovery
+participant A as OB DATA app
+participant O as OB FRMCS
+participant M1 as Service Server Service1
+participant T1 as GW 1
+participant B1 as DATA app 1
+participant Tp as GW...
+participant Bp as DATA app ...
+participant TN as GW N
+participant BN as DATA app N
+par OB setup
+	Note over O: Start of Operation 
+	Note over A,O: OBapp local binding (DynamicID=D1)
+	Note over O: Service choice (MC, Ohter Service TbD)
+	Note over O,M1:	Service1 registration
+and TS1 setup
+	Note over B1,T1: TSapp/OBapp local binding (DynamicID=D2)
+	Note over T1: Service choice (MC, Ohter Service TbD)
+	Note over T1,M1:	Service1 registration
+end
+
+% existing sessions with B1
+rect rgb(191, 223, 255)
+par Applicative Session 1
+    Note over A,B1: session (AS1 OB side, AS3 dest. side with given dest applicative ID)  OB DATA app ↔ TS DATA app 1 (IPe ↔ IPr1) over Domain 1
+    Note over O: Applicative ID resolution to service ID
+	Note over O,T1: Service session (SS1 OB side, SS3 dest. side)  OB DATA app ↔ TS DATA app 1 (IPe ↔ IPr1) over Domain 1
+and Applicative Session ...
+    Note over A,Bp: session (AS... OB side, AS... dest. side with given dest applicative ID)  OB DATA app ↔ DATA app ... (IPe ↔ IPr1) over Domain 1
+    Note over O,Tp: Service session (SS... OB side, SS... TS side)  OB DATA app ↔ DATA app ... (IPe ↔ IPr1) over Domain 1
+and Applicative Session N
+    Note over A,BN: session (AS... OB side, AS... dest. side with given dest applicative ID)  OB DATA app ↔ DATA app N (IPe ↔ IPr1) over Domain 1
+    Note over O,TN: Service session (SSNO OB side, SSND dest. side with given dest applicative ID)  OB DATA app ↔ DATA app N (IPe ↔ IPr1) over Domain 1
+end
+end
+Note over O:	Failure detection of at least one Service Session
+rect rgb(240, 223, 255)
+critical Recovery of Failed Service Sessions (SSX OB side SSY dest. side)
+	loop on failed sessions SSX,SSY
+    par SSX OB Side and SSY dest. side
+		Note over O,T1:	Service Data OB FRMCS ↔ Service Server ↔ GWY <br/>
+		O-->>T1:	Session Replacement (OldSessionID=SSY)
+		T1-->>O:	200 OK
+		Note over O,T1: Replacement of Bearer for Service Session SSX OB side ↔ SSY dest
+	and 
+    end
+    end
+end
+end

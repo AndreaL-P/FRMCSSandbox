@@ -1,0 +1,162 @@
+sequenceDiagram
+    %% Définition des acteurs
+    participant App_A as App User A
+    participant FRMCS_GW_A as FRMCS GW A
+    participant gNB_A as gNodeB A
+    participant Core_A as 5G Core A
+    participant IMS_A as IMS/SIP A
+    participant MCX_A as MCx Server A
+    participant MCX_B as MCx Server B
+    participant IMS_B as IMS/SIP B
+    participant Core_B as 5G Core B
+    participant gNB_B as gNodeB B
+    participant FRMCS_GW_B as FRMCS GW B
+    participant App_B as App User B
+
+    Note over App_A, App_B: **FRMCS Ecosystem - 3 Layers Architecture**
+    Note over App_A, App_B: Transport Layer: 5G (today), other 3GPP/non-3GPP (future)
+    Note over App_A, App_B: Service Layer: Mission Critical Services (MCx)
+    Note over App_A, App_B: Application Layer: FRMCS Applications
+
+    %% PHASE 1: Startup and Registration of FRMCS GWs
+    rect rgb(240, 240, 240)
+        Note over App_A, App_B: **PHASE 1: Startup and Registration of FRMCS GWs**
+        %% GW A Registration Process
+        FRMCS_GW_A->>gNB_A: RRC Connection Request (TS 38.331)
+        gNB_A->>Core_A: NGAP Initial UE Message
+        FRMCS_GW_A->>Core_A: Registration Request (NAS, TS 24.501)
+        Core_A->>FRMCS_GW_A: Authentication & Security Procedures
+        Core_A->>FRMCS_GW_A: Registration Accept
+
+        %% Transport Layer: PDU Session Establishment
+        FRMCS_GW_A->>Core_A: PDU Session Establishment Request (NAS)
+        Core_A->>gNB_A: PDU Session Resource Setup
+        gNB_A->>FRMCS_GW_A: RRC Reconfiguration (DRB Setup)
+        FRMCS_GW_A->>gNB_A: RRC Reconfiguration Complete
+        Core_A->>FRMCS_GW_A: PDU Session Establishment Accept
+
+        %% Service Layer: IMS Registration and MCx Service Registration
+        FRMCS_GW_A->>IMS_A: SIP REGISTER (TS 24.229)
+        IMS_A->>FRMCS_GW_A: 200 OK (Registration)
+        FRMCS_GW_A->>MCX_A: MCx Service Registration (TS 24.379/9)
+        Note right of FRMCS_GW_A: Service User ID Registration
+        MCX_A->>FRMCS_GW_A: MCx Service Registration Response
+
+        %% Same for GW B
+        FRMCS_GW_B->>gNB_B: RRC Connection Request (TS 38.331)
+        gNB_B->>Core_B: NGAP Initial UE Message
+        FRMCS_GW_B->>Core_B: Registration Request (NAS, TS 24.501)
+        Core_B->>FRMCS_GW_B: Authentication & Security Procedures
+        Core_B->>FRMCS_GW_B: Registration Accept
+
+        FRMCS_GW_B->>Core_B: PDU Session Establishment Request (NAS)
+        Core_B->>gNB_B: PDU Session Resource Setup
+        gNB_B->>FRMCS_GW_B: RRC Reconfiguration (DRB Setup)
+        FRMCS_GW_B->>gNB_B: RRC Reconfiguration Complete
+        Core_B->>FRMCS_GW_B: PDU Session Establishment Accept
+
+        FRMCS_GW_B->>IMS_B: SIP REGISTER (TS 24.229)
+        IMS_B->>FRMCS_GW_B: 200 OK (Registration)
+        FRMCS_GW_B->>MCX_B: MCx Service Registration (TS 24.379/9)
+        Note left of FRMCS_GW_B: Service User ID Registration
+        MCX_B->>FRMCS_GW_B: MCx Service Registration Response
+    end
+
+    %% PHASE 2: Application Session Establishment
+    rect rgb(230, 240, 255)
+        Note over App_A, App_B: **PHASE 2: Application Session Establishment**
+
+        %% Application Layer Interaction
+        App_A->>FRMCS_GW_A: OBapp Session Request(App_A_ID, App_B_ID)
+        Note right of App_A: Application User IDs
+
+        %% FRMCS GW A Resolves App ID to Service ID
+        FRMCS_GW_A->>FRMCS_GW_A: Resolve App_B_ID to Service User ID(s)
+        Note right of FRMCS_GW_A: App Session Order #X assigned
+
+        %% Service Layer: MCx Session Establishment
+        FRMCS_GW_A->>MCX_A: SIP INVITE (Service_ID_B, App_Session_X)
+        Note right of FRMCS_GW_A: Service Session Order #Y assigned
+        Note right of FRMCS_GW_A: Authentication/ID mapping info + App_A_ID, App_B_ID
+        MCX_A->>MCX_B: SIP INVITE (via IMS interconnect)
+        
+        %% MCx B forwards to GW B
+        MCX_B->>FRMCS_GW_B: SIP INVITE (Service_ID_B)
+        Note left of FRMCS_GW_B: Contains App_A_ID, App_B_ID, App Session #X, Service Session #Y
+        
+        %% Application Layer at destination - Direct notification
+        FRMCS_GW_B->>App_B: OBapp Incoming Session (App_A_ID)
+        App_B->>FRMCS_GW_B: OBapp Session Accept
+        
+        %% Session Establishment Confirmation back
+        FRMCS_GW_B->>MCX_B: SIP 200 OK
+        MCX_B->>MCX_A: SIP 200 OK (via IMS interconnect)
+        MCX_A->>FRMCS_GW_A: SIP 200 OK
+        FRMCS_GW_A->>App_A: OBapp Session Established
+
+        %% Media Flow Establishment
+        FRMCS_GW_A->>MCX_A: Media Flow Initiation
+        MCX_A->>MCX_B: Media Relay
+        MCX_B->>FRMCS_GW_B: Media Delivery
+        
+        Note over App_A, App_B: Bidirectional Application Session Active
+        Note over App_A, App_B: Underlying Service Session #Y established
+    end
+
+    %% PHASE 3: Service Domain Change and Session Transfer
+    rect rgb(255, 240, 230)
+        Note over App_A, App_B: **PHASE 3: Service Domain Change (GW A moves from MCx Server A to C)**
+
+        %% GW A detects need to change service domain
+        FRMCS_GW_A->>FRMCS_GW_A: Detect need to change MCx domain
+        Note right of FRMCS_GW_A: e.g., network conditions, load balancing
+
+        %% Transport Layer: Potential new PDU Session if needed
+        FRMCS_GW_A->>Core_A: PDU Session Establishment Request (for new path)
+        Core_A->>gNB_A: Additional PDU Session Resource Setup
+        Core_A->>FRMCS_GW_A: PDU Session Establishment Accept
+
+        %% Register to new MCx server (C) while maintaining A
+        FRMCS_GW_A->>IMS_A: SIP REGISTER (for MCx Server C)
+        IMS_A->>FRMCS_GW_A: 200 OK
+
+        %% Service Layer: Registration to new MCx domain
+        FRMCS_GW_A->>MCX_C: MCx Service Registration
+        MCX_C->>FRMCS_GW_A: MCx Service Registration Response
+        Note right of MCX_C: MCx Server C
+
+        %% Establish replacement service session
+        FRMCS_GW_A->>MCX_C: SIP INVITE (Service_ID_B, App_Session_X)
+        Note right of FRMCS_GW_A: Replacement Service Session #Z 
+        Note right of FRMCS_GW_A: With Auth/ID mapping from Session #Y + App_IDs
+        
+        %% MCx C coordinates with MCx B
+        MCX_C->>MCX_B: SIP INVITE (via IMS interconnect)
+        MCX_B->>FRMCS_GW_B: SIP INVITE (replacement session notification)
+        FRMCS_GW_B->>MCX_B: SIP 200 OK (accepting replacement)
+        MCX_B->>MCX_C: SIP 200 OK
+        MCX_C->>FRMCS_GW_A: SIP 200 OK
+
+        %% Media Flows for new service session
+        FRMCS_GW_A->>MCX_C: Media Flow Initiation
+        MCX_C->>MCX_B: Media Relay
+        MCX_B->>FRMCS_GW_B: Media Delivery
+        
+        %% Application Layer notified of underlying change (optional)
+        FRMCS_GW_A->>App_A: OBapp Session Update Notification (optional)
+        FRMCS_GW_B->>App_B: OBapp Session Update Notification (optional)
+        
+        %% Terminate original service session
+        FRMCS_GW_A->>MCX_A: SIP BYE (terminate Session #Y)
+        MCX_A->>MCX_B: SIP BYE notification
+        MCX_A->>FRMCS_GW_A: 200 OK (Session #Y terminated)
+        
+        Note over App_A, App_B: Application Session remains active
+        Note over App_A, App_B: Service Session switched from #Y to #Z
+        Note over App_A, App_B: Transport Layer adapted accordingly
+    end
+
+    Note over App_A, App_B: **Key points:**
+    Note over App_A, App_B: 1. App session maintained despite Service session changes
+    Note over App_A, App_B: 2. Session IDs and Auth info passed between service domains
+    Note over App_A, App_B: 3. Multiple service sessions can support one app session

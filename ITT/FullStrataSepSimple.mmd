@@ -1,0 +1,139 @@
+sequenceDiagram
+    participant App_A as Application A
+    participant GW_A as Originating Gateway A
+    participant UE_A as Radio Module A
+    participant RS as Resolution Service
+    participant TD_A1 as Transport Domain A
+    participant TD_A2 as Transport Domain C
+    participant SD_A1 as Service Server Domain A
+    participant SD_A2 as Service Server Domain C
+    participant UE_B as Radio Module B
+    participant GW_B as Recipient Gateway B
+    participant App_B as Application B
+
+    rect rgb(230, 240, 255)
+        Note over App_A, App_B: PHASE 1: Initial Setup and Applicative Session Establishment
+
+        %% Initial Transport & Service Domain Registration
+        App_A->>GW_A: Local binding
+        GW_A->>UE_A: Transport Registration request
+        UE_A->>TD_A1: Transport Registration (RRC Connection + NAS)
+        TD_A1->>UE_A: Transport Registration Confirm
+        UE_A->>GW_A: Transport Domain Available
+        GW_A->>App_A: FTD Available notif (optional)
+        GW_A->>SD_A1: Service Registration<br>(FRMCS service domain: MCx, ...)
+        SD_A1->>GW_A: Service Registration Confirm
+        GW_A->>App_A: FSD available notif
+        
+        GW_B->>SD_A1: Service Registration
+        SD_A->>GW_B: Service Registration Confirm
+        GW_B->App_B: FSD available notif
+
+        %% Application Session Establishment
+        App_A->>GW_A: Application Session Request(App_A_ID, App_B_ID)
+        
+        %% Resolution of App ID to Service ID via Resolution Service
+        GW_A->>RS: Resolution Request(App_B_ID)
+        RS->>GW_A: Resolution Response(GWB_Service_ID, GW_B)
+        
+        %% Generate Authentication Material
+        GW_A->>GW_A: Generate temporary key pair for App Session information (OGW_AppSessPrivKey, OGW_AppSessPubKey)
+        Note right of GW_A: App Session ID = 123 assigned
+        
+        %% Establish Service Session(s) via Service Domain
+        loop for each intended service session
+            GW_A->>SD_A1: Service Session Request (GWB_Service_ID)
+            Note right of GW_A: Service Session ID = 1 assigned
+            SD_A1->>GW_B: Service Session Request Delivery
+            
+            %% Session Authentication & Identification Exchange
+            GW_A->>GW_B: AppSessionInformation (App_Sess_ID=123, Serv_Sess_ID=1, RequestTime=t1) + OBGW_AppSessPubKey
+            Note right of GW_A: Signed with OGW_AppSessPrivKey (OGW_AppSessPubKey in clear and sent only for the first service session of the Applicative session)
+            
+            GW_B->>GW_B: Generate temporary key pair for App Session information (DGW_AppSessPrivKey, DGW_AppSessPubKey)
+            GW_B->>GW_B: Map to App_B_ID & store session data
+            GW_B->>App_B: Application Session Notification(App_A_ID)
+            
+            App_B->>GW_B: Accept Session
+            
+            GW_B->>GW_A: Response(Dest_App_Sess_ID=18, AcceptTime=t2) + DGW_AppSessPublicKey
+            Note left of GW_B: Signed with DGW_AppSessPrivKey (DGW_AppSessPubKey in clear and sent only for the first service session of the Applicative session)
+        end
+        GW_A->>App_A: Application Session Established
+        
+        %% Media Flow Establishment
+        App_A->>App_B: Application Data Flow <br> (using the service session(s) created)
+    end
+    
+    rect rgb(255, 240, 230)
+        Note over App_A, App_B: PHASE 2: Domain Change (Transport then Service)
+        
+        %% Detection of Transport Domain Change Need
+        GW_A->>GW_A: Detect need to change Transport Domain 
+        Note right of GW_A: Network conditions, signal quality, etc.<br>(Upper Layers event)
+        loop on all ServSessID
+            GW_A->>SD_A1: anchorage of Service Session in SCC AS (TS 23.237)
+            SD_A1->>GW_A: STI identifier of anchored session
+        end
+        GW_A->>UE_A: RCC connection release request (TS 38.331 5.3.9)
+        UE_A->>TD_A1: RCC connection release procedure initiation (TS 38.331 5.3.9)
+        UE_A->>GW_A: PLMN scann results
+        GW_A->>GW_A: PLMN selection based on algorithm or user interaction
+        GW_A->>UE_A: Order to select given PLMN
+        UE_A->>TD_A2: Transport Registration (RRC Connection + NAS)
+        TD_A2->>UE_A: Transport Registration Confirm
+        UE_A->>GW_A: Transport Domain Available
+        GW_A->>App_A: FTD Available notif (optional)
+        
+        %% Update Service Path for Existing Service Session(s)
+        loop on all ServSessID
+            GW_A->>SD_A1: Transfer of service session via new transport domain (TS 23.237)
+            SD_A1->>GW_A: Transfer of service session Confirm
+        end
+        %% Media Flow Continues via New Transport Path
+        App_A->>App_B: Application Data Flow <br> (via updated transport path)
+        
+        %% Later: Service Domain Change
+        GW_A->>GW_A: Detect need to change Service Domain
+        Note right of GW_A: Load balancing, service migration, etc.
+        
+        %% Registration to New Service Domain
+        GW_A->>SD_A2: Service Registration<br>(FRMCS service domain: MCx, ...)
+        SD_A2->>GW_A: Service Registration Confirm
+        GW_A->>App_A: FSD available notif (optional)
+        
+        %% Establish Replacement Service Session
+        loop on ServSessID
+            GW_A->>SD_A2: Service Session Request (Service_B_ID)
+            Note right of GW_A: Replacement Service Session ID = ReplServSessID
+            SD_A2->>SD_A1: Service Session Request Forwarding (via FS_NNI)
+            SD_A1->>GW_B: Service Session Request Delivery
+            
+            %% Authentication for Session Replacement
+            GW_A->>GW_B: Replacement Order with Complete Quintuplet Reference + ReplServSessID
+            Note right of GW_A: Signed with OGW_AppSessPrivKey
+            
+            GW_B->>GW_B: Verify quintuplet against stored data
+            GW_B->>GW_A: Acknowledge replacement (signed with DGW_AppSessPrivKey)
+            Note right of GW_B: Signed with DGW_AppSessPrivKey
+            GW_A->>GW_B: Replacement Confirmation
+
+            %% Close Original Service Session
+            GW_A->>SD_A1: Close Service Session ServSessID
+            SD_A1->>SD_B: Close Session Notification
+            SD_B->>GW_B: Close Session Notification
+        end
+           
+           
+        
+        %% Media Flow via New Service Session
+        App_A->>App_B: Application Data Flow <br> (using the replacement service session(s))
+        
+        
+    end
+
+    Note over App_A, App_B: Key Observations:
+    Note over App_A, App_B: 1. Application Session remains continuous through all domain transitions
+    Note over App_A, App_B: 2. Authentication material established at session start enables secure transitions
+    Note over App_A, App_B: 3. Each transition properly verified and acknowledged before completing
+    Note over App_A, App_B: 4. Order of transitions (transport/service) handled transparently to applications

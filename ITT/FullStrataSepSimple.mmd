@@ -6,7 +6,7 @@ sequenceDiagram
     participant TD_A1 as Transport Domain A
     participant TD_A2 as Transport Domain C
     participant SD_A1 as Service Server Domain A
-    participant SD_A2 as Service Server Domain C
+    participant 2 as Service Server Domain C
     participant UE_B as Radio Module B
     participant GW_B as Recipient Gateway B
     participant App_B as Application B
@@ -26,7 +26,7 @@ sequenceDiagram
         GW_A->>App_A: FSD available notif
         
         GW_B->>SD_A1: Service Registration
-        SD_A->>GW_B: Service Registration Confirm
+        SD_A1->>GW_B: Service Registration Confirm
         GW_B->App_B: FSD available notif
 
         %% Application Session Establishment

@@ -120,8 +120,7 @@ sequenceDiagram
 
             %% Close Original Service Session
             GW_A->>SD_A1: Close Service Session ServSessID
-            SD_A1->>SD_B: Close Session Notification
-            SD_B->>GW_B: Close Session Notification
+            SD_A1->>GW_B: Close Session Notification
         end
            
            

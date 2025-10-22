@@ -36,10 +36,7 @@ sequenceDiagram
     rect rgb(204, 255, 255)
      alt BX_MODE = AUTO
     note over OB-FRMCS: select the cross border <br> PLMN corresponding <br> to highest ranked PLMN <br> in eHPLMN list
-    OB-FRMCS->>RM: PLMN selection request (PLMN1)
-    RM->>OB-FRMCS: successful reqistration 
-    OB-FRMCS ->> VAS: FTD_AVAIL (PLMN1)
-    end
+     end
     end
  rect rgb(229, 255, 204)
      alt BX_MODE=BX_MANUAL
@@ -51,12 +48,9 @@ sequenceDiagram
     HMI ->> VAS: service domain selection (SD1)
     note over VAS: thanks to FRIOP, maps<br> to corresponding PLMN
     VAS->> OB-FRMCS: PLMN selection request (PLMN1)
-    OB-FRMCS->>RM: PLMN selection request (PLMN1)
+    end
+    end
+     OB-FRMCS->>RM: PLMN selection request (PLMN1)
     RM->>OB-FRMCS: successful reqistration 
     OB-FRMCS ->> VAS: FTD_AVAIL (PLMN1)
-    end
-    end
-    end
-
-    
-   
+ end

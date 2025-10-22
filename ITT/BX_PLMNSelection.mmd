@@ -25,7 +25,7 @@ sequenceDiagram
     HMI->>VAS: BX_MODE
    alt BX_MODE != BX_DISABLED
     VAS->>OB-FRMCS: BX_MODE
-    Note over VAS, OB-FRMCS: as long as OB-FRMCS is neither <br>requested  to launch BX operation <br> nor looses currently selected<br>PLMN, it remains attached <br>on this PLMN
+    Note over VAS, OB-FRMCS: as long as OB-FRMCS is neither <br>requested  to launch BX operation <br> nor loses currently selected<br>PLMN, it remains attached <br>on this PLMN
     OB-FRMCS->>VAS: Location notification
     VAS->> VAS: detection of border zone
 

@@ -1,0 +1,63 @@
+sequenceDiagram
+    participant UE as UE (Single Radio)
+    participant PCSCF1 as P-CSCF (PLMN1)
+    participant PCF2 as PCF (PLMN2)
+    participant PCSCF2 as P-CSCF (PLMN2)
+    participant SCSCF as S-CSCF (PLMN1 Home)
+    participant SCCAS as SCC-AS
+    participant MCClient as MC Client
+    participant MCServer as MC Server
+
+    Note over UE,MCServer: Session Mission Critical Data active sur PLMN1 (TS 23.280)
+    
+    Note over UE: PLMN change preparation trigger
+     Note over UE,MCServer: Phase 1: MCData session transfer preparation - Single radio 
+      UE->>PCSCF1: SIP REFER (Target-Dialog, Refer-To with GRUU) (TS 24.237)
+    PCSCF1->>SCSCF: SIP REFER
+    SCSCF->>SCCAS: SIP REFER
+    SCCAS->>SCSCF: 202 Accepted
+    SCSCF->>PCSCF1: 202 Accepted
+    PCSCF1->>UE: 202 Accepted
+    
+    Note over SCCAS: SCCAS initiates session transfer
+    
+    SCCAS->>SCSCF: SIP INVITE (Target-Dialog, alerte réseau de handover imminent)
+    SCSCF->>SCCAS: 200 OK (INVITE)
+    
+    Note over UE,MCServer: Phase 2: PLMN handover/reselection
+    Note over UE: PLMN1 connecitivity loss / registration on  PLMN2
+    
+    UE->>PCF2: Connectivity establishement on  PLMN2
+    PCF2-->>UE: IP address and resources allocation/configuration
+    
+    Note over UE,PCSCF2: Phase 3: MCData session retrieval on PLMN2 (TS 24.237)
+    
+    UE->>PCSCF2: SIP REGISTER (Contact with instance-id, reg-id) (TS 24.229 §5.1.1.4)
+    PCSCF2->>SCSCF: SIP REGISTER
+    SCSCF->>UE: 200 OK (REGISTER)
+    
+    UE->>PCSCF2: SIP INVITE (STI, session retrieval) (TS 24.237 §10.3.2)
+    PCSCF2->>SCSCF: SIP INVITE (STI)
+    SCSCF->>SCCAS: SIP INVITE (STI)
+    SCCAS->>SCCAS: Association with previous session
+    SCCAS->>MCServer: SIP re-INVITE (new SDP)
+    
+    MCServer->>MCClient: SIP MESSAGE/INFO(session transfer notification)
+    MCClient->>MCServer: 200 OK
+    
+    MCServer->>SCCAS: 200 OK (re-INVITE)
+    SCCAS->>SCSCF: 200 OK (INVITE)
+    SCSCF->>PCSCF2: 200 OK (INVITE)
+    PCSCF2->>UE: 200 OK (INVITE)
+    UE->>PCSCF2: SIP ACK
+    
+    Note over UE,MCServer: MC data transfer can be continued on PLMN2
+   
+    Note over UE,MCServer: Phase 4: Removal of old resources (if still there)
+    
+    SCCAS->>SCSCF: SIP BYE 
+    SCSCF->>PCSCF1: SIP BYE
+    PCSCF1-->>SCSCF: 408 Request Timeout (UE unreachable)
+    SCSCF-->>SCCAS: 408 Request Timeout
+    
+   

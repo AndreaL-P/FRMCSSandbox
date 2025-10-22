@@ -1,85 +1,63 @@
 sequenceDiagram
     participant UE as UE (Single Radio)
-   %% participant PCF1 as PCF (PLMN1)
     participant PCSCF1 as P-CSCF (PLMN1)
-  %%  participant PCF2 as PCF (PLMN2)
+    participant PCF2 as PCF (PLMN2)
     participant PCSCF2 as P-CSCF (PLMN2)
     participant SCSCF as S-CSCF (PLMN1 Home)
     participant SCCAS as SCC-AS
-    participant MCClient as MC Data Client
-    participant MCServer as MC Data Server
+    participant MCClient as MC Client
+    participant MCServer as MC Server
 
-    Note over UE,MCServer:  MC Data active Session in PLMN1 (TS 23.282)
+    Note over UE,MCServer: Session Mission Critical Data active sur PLMN1 (TS 23.280)
     
-   %% UE->>PCF1: Notifications sur flux prioritaires MC Data (TS 23.282)
-   %% PCF1->>PCSCF1: Règles QoS pour trafic MC Data (TS 23.203)
-    
-    Note over UE: PLMN change trigger
-    %% UE->>UE: Décision de handover (TS 36.331/38.331)
-    
-    Note over UE,MCServer: Phase 1: Préparation au transfert - Single Radio (TS 23.237 Sec.6.2.2)
-    
-    UE->>PCSCF1: SIP OPTIONS (vérification de connexion)
-    PCSCF1->>UE: 200 OK (connexion disponible)
-    UE->>PCSCF1: SIP REFER (Target-Dialog, Refer-To avec GRUU) (TS 24.237)
+    Note over UE: PLMN change preparation trigger
+     Note over UE,MCServer: Phase 1: MCData session transfer preparation - Single radio 
+      UE->>PCSCF1: SIP REFER (Target-Dialog, Refer-To with GRUU) (TS 24.237)
     PCSCF1->>SCSCF: SIP REFER
     SCSCF->>SCCAS: SIP REFER
     SCCAS->>SCSCF: 202 Accepted
     SCSCF->>PCSCF1: 202 Accepted
     PCSCF1->>UE: 202 Accepted
     
-    Note over SCCAS: SCCAS initie le transfert de session (TS 23.237)
+    Note over SCCAS: SCCAS initiates session transfer
     
     SCCAS->>SCSCF: SIP INVITE (Target-Dialog, alerte réseau de handover imminent)
     SCSCF->>SCCAS: 200 OK (INVITE)
     
-    Note over UE,MCServer: Phase 2: Handover Radio - Interruption brève (TS 23.402/TS 23.502)
+    Note over UE,MCServer: Phase 2: PLMN handover/reselection
+    Note over UE: PLMN1 connecitivity loss / registration on  PLMN2
     
-    UE-->>PCSCF1: Perte de connexion avec PLMN1
-    Note over UE: Détachement radio de PLMN1, attachement à PLMN2
+    UE->>PCF2: Connectivity establishement on  PLMN2
+    PCF2-->>UE: IP address and resources allocation/configuration
     
-   %% UE->>PCF2: Établissement connectivité sur PLMN2
-    %%PCF2-->>UE: Attribution IP et ressources
+    Note over UE,PCSCF2: Phase 3: MCData session retrieval on PLMN2 (TS 24.237)
     
-    Note over UE,PCSCF2: Phase 3: Reprise de la session sur nouveau PLMN (TS 24.237)
-    
-    UE->>PCSCF2: SIP REGISTER (Contact avec instance-id, reg-id) (TS 24.229)
+    UE->>PCSCF2: SIP REGISTER (Contact with instance-id, reg-id) (TS 24.229 §5.1.1.4)
     PCSCF2->>SCSCF: SIP REGISTER
     SCSCF->>UE: 200 OK (REGISTER)
     
-    UE->>PCSCF2: SIP INVITE (STI-rSR, session récupération) (TS 24.237)
-    PCSCF2->>SCSCF: SIP INVITE (STI-rSR)
-    SCSCF->>SCCAS: SIP INVITE (STI-rSR)
-    SCCAS->>SCCAS: Association avec session précédente
-    SCCAS->>MCServer: SIP re-INVITE (nouveau SDP)
+    UE->>PCSCF2: SIP INVITE (STI, session retrieval) (TS 24.237 §10.3.2)
+    PCSCF2->>SCSCF: SIP INVITE (STI)
+    SCSCF->>SCCAS: SIP INVITE (STI)
+    SCCAS->>SCCAS: Association with previous session
+    SCCAS->>MCServer: SIP re-INVITE (new SDP)
     
-    MCServer->>MCClient: Notification MC Data transfert session (TS 23.282)
-    Note over MCServer,MCClient: Utilisation du MCData SDS ou FD protocols selon le type de session (TS 24.282)
-    MCClient->>MCServer: Acceptation
+    MCServer->>MCClient: SIP MESSAGE/INFO(session transfer notification)
+    MCClient->>MCServer: 200 OK
     
     MCServer->>SCCAS: 200 OK (re-INVITE)
     SCCAS->>SCSCF: 200 OK (INVITE)
     SCSCF->>PCSCF2: 200 OK (INVITE)
     PCSCF2->>UE: 200 OK (INVITE)
-    UE->>PCSCF2: ACK
+    UE->>PCSCF2: SIP ACK
     
-    %%Note over UE,PCF2: Phase 4: Établissement QoS sur nouveau PLMN
+    Note over UE,MCServer: MC data transfer can be continued on PLMN2
+   
+    Note over UE,MCServer: Phase 4: Removal of old resources (if still there)
     
-    %%PCSCF2->>PCF2: Demande autorisation QoS pour MC Data (TS 29.214)
-    %%PCF2->>PCSCF2: Confirmation QoS prioritaire pour MC Data (TS 23.282 Annexe A)
-    
-    Note over UE,MCServer: Récupération état des transferts MC Data (TS 23.282 Section 7.4.2.3.5)
-    
-    UE->>MCServer: Requête état des transferts MC Data interrompus
-    MCServer->>UE: État des transferts et reprise depuis le point d'interruption
-    
-    Note over UE,MCServer: Phase 5: Nettoyage ressources sur ancien réseau (implicite)
-    
-    SCCAS->>SCSCF: SIP BYE (ancienne branche dialog)
+    SCCAS->>SCSCF: SIP BYE 
     SCSCF->>PCSCF1: SIP BYE
-    PCSCF1-->>SCSCF: 408 Request Timeout (UE non joignable)
+    PCSCF1-->>SCSCF: 408 Request Timeout (UE unreachable)
     SCSCF-->>SCCAS: 408 Request Timeout
     
-   %% Note over PCF1: Libération des ressources après timeout (TS 29.214)
-    
-    Note over UE,MCServer: Session MC Data rétablie sur PLMN2 avec QoS préservée (TS 22.282, TS 23.282)
+   

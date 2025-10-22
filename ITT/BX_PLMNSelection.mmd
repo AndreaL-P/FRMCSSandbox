@@ -1,0 +1,62 @@
+sequenceDiagram
+    participant ADC as driver 
+   %% participant PCF1 as PCF (PLMN1)
+    participant HMI as HMI
+    participant VAS as VAS
+    participant OB-FRMCS as OB-FRMCS
+    participant RM as RM
+    %%participant SCCAS as SCC-AS
+    %%participant MCClient as MC Data Client
+   %% participant MCServer as MC Data Server
+
+    Note over ADC, RM:  Stop in last station before border
+    
+   %% UE->>PCF1: Notifications sur flux prioritaires MC Data (TS 23.282)
+   %% PCF1->>PCSCF1: Règles QoS pour trafic MC Data (TS 23.203)
+    
+    %%Note over UE: PLMN change preparation trigger
+    %% UE->>UE: Décision de handover (TS 36.331/38.331)
+    
+    %%Note over UE,MCServer: Phase 1: MC Data session transfer preparation - Single Radio (TS 23.237 Sec.6.2.2)
+    
+    %%UE->>PCSCF1: SIP OPTIONS (vérification de connexion)
+    %%PCSCF1->>UE: 200 OK (connexion disponible)
+    ADC->>HMI: Set BX Mode
+    HMI->>VAS: BX_MODE
+   alt BX_MODE != BX_DISABLED
+    VAS->>OB-FRMCS: BX_MODE
+    Note over VAS, OB-FRMCS: as long as OB-FRMCS is neither <br>requested  to launch BX operation <br> nor looses currently selected<br>PLMN, it remains attached <br>on this PLMN
+    OB-FRMCS->>VAS: Location notification
+    VAS->> VAS: detection of border zone
+
+    VAS->>OB-FRMCS: network transition request
+    OB-FRMCS->>RM: PLMN scan request
+    Note over RM: PLMN scan procedure 
+    RM->>OB-FRMCS: List of scanned PLMN 
+    rect rgb(204, 255, 255)
+     alt BX_MODE = AUTO
+    note over OB-FRMCS: select the cross border <br> PLMN corresponding <br> to highest ranked PLMN <br> in eHPLMN list
+    OB-FRMCS->>RM: PLMN selection request (PLMN1)
+    RM->>OB-FRMCS: successful reqistration 
+    OB-FRMCS ->> VAS: FTD_AVAIL (PLMN1)
+    end
+    end
+ rect rgb(229, 255, 204)
+     alt BX_MODE=BX_MANUAL
+    OB-FRMCS ->> VAS: List of available PLMNs
+    note over VAS: thanks to FRIOP, <br>maps suitable PLMNs to<br> service domains
+    VAS ->> HMI : List of Available service domains
+    HMI->>ADC: List of available service domains
+    ADC ->> HMI: service domain selection
+    HMI ->> VAS: service domain selection (SD1)
+    note over VAS: thanks to FRIOP, maps<br> to corresponding PLMN
+    VAS->> OB-FRMCS: PLMN selection request (PLMN1)
+    OB-FRMCS->>RM: PLMN selection request (PLMN1)
+    RM->>OB-FRMCS: successful reqistration 
+    OB-FRMCS ->> VAS: FTD_AVAIL (PLMN1)
+    end
+    end
+    end
+
+    
+   

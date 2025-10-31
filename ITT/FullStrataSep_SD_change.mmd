@@ -1,0 +1,51 @@
+sequenceDiagram
+    participant App_A as ETCS OBU
+    participant GW_A as OB FRMCS
+    participant UE_A as Radio Module A
+    participant RS as Resolution Service
+    participant TD_A1 as Transport Domain A
+    participant SD_A1 as Service Server Domain A
+    participant SD_A2 as Service Server Domain B
+    participant GW_B as TS Gateway 1
+    participant App_B as RBC 1
+
+
+    
+        
+    rect rgb(230, 240, 255)
+        Note over App_A, App_B: PHASE 1: Service Domain Change
+        %% Application Session Establishment
+        App_A->>App_B: Application Data Flow running in normal operation through Application Session ID = 123 on OB FRMCS side and 47 on TS Gateway side Service ID already resolved
+        %% Detection of Service Domain Change Need
+        GW_A->>GW_A: Detect need to change Service Domain
+        Note right of GW_A: Policy decision, service optimization, etc.
+        %% Registration to New Service Domain
+        GW_A->>SD_A2: Service Registration (IMS/SIP)
+        SD_A2->>GW_A: Service Registration Confirm
+        
+        %% Establish Replacement Service Session
+        loop on all Service Session ID: SID of Application Session 123 / 47
+        GW_A->>SD_A2: Service Session Request (Service_B_ID)
+        Note right of GW_A: Replacement Service Session ID = RID
+        SD_A2->>SD_A1: Service Session Request Forwarding
+        SD_A1->>GW_B: Service Session Request Delivery
+                %% Authentication for Session Replacement
+        GW_A->>GW_B: Replacement Order with Complete Quintuplet Reference
+        Note right of GW_A: Signed with App Session Certificate of OB FRMCS
+        GW_B->>GW_B: Verify quintuplet against stored data
+        GW_B->>GW_A: Acknowledge replacement 
+        Note left of GW_B: Signed with App Session Certificate of TS  GW
+        GW_A->>GW_B: Replacement Confirmation
+        %% Close Original Service Session
+        GW_A->>SD_A1: Close Service Session SID
+        SD_A1->>GW_B: Close Session Notification
+        end
+        %% Media Flow via New Service Session
+        App_A->>GW_A: Application Data Flow
+        GW_A->>SD_A2: Media Flow (via Service Session 3)
+        SD_A2->>SD_A1: Media Relay
+        SD_A1->>GW_B: Media Delivery
+        GW_B->>App_B: Application Data Delivery
+    end
+    
+    

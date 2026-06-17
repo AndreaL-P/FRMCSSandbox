@@ -1,102 +1,82 @@
-# FRMCS — Handover RBC : Diagrammes de séquence avec payloads
-
-> **Légende des niveaux de payload :**
-> - 🔵 **ETCS applicatif** — messages et paquets SUBSET-026 avec champs et longueurs en bits
-> - 🟠 **EuroRadio/CFM** — primitives SUBSET-037-3 (T-CONNECT / T-DISCONNECT / T-DATA)
-> - 🟢 **NRBC** — messages inter-RBC SUBSET-039 avec header (9 champs) + contenu
-> - 🔴 **Transport IP/TCP** — connexion TCP over FRMCS bearer
-> - 🟣 **5G NAS/RRC** — signalisation 5G NR (Registration, PDU Session)
->
-> **Acteurs :**
-> | Sigle | Rôle |
-> |---|---|
-> | **ETCS OBU** | Unité bord ETCS — produit/consomme les messages SUBSET-026 |
-> | **OB FRMCS GW/TOBA** | Passerelle bord (OB-GTW) — gère CFM, routage IP, bearer flexibility (TOBA-7510) |
-> | **OB FRMCS RF** | Module radio 5G NR bord — UE 5G ; 1 ou 2 instances selon scénario |
-> | **FRMCS TS GW** | Passerelle côté voie (TSapp GW) — point d'entrée FRMCS vers RBC (FIS-7970) |
-> | **RBC1** | Radio Block Centre cédant (Handing Over RBC) |
-> | **RBC2** | Radio Block Centre acceptant (Accepting RBC) |
->
-> **Références :** SUBSET-026 v4.0.0, SUBSET-037-3 v4.1.4, SUBSET-039 v3.2.0, TOBA-7510 v1.0.0, TOBA-7540, FFFIS-7950, FIS-7970
-
----
-
-## Scénario 1 — Handover RBC sans changement de réseau FRMCS (intra-PLMN)
-
-> Session 5G maintenue sur PLMN A tout au long du handover.
-> Seule la destination TCP de la session EuroRadio change (RBC1 -> RBC2).
-> Architecture : un seul module RF actif.
-
-```mermaid
+FRMCS - Handover RBC : Diagrammes de sequence avec payloads
+Legende des niveaux de payload
+•	[ETCS] : messages et paquets SUBSET-026 avec champs et longueurs en bits
+•	[CFM] : primitives SUBSET-037-3 T-CONNECT / T-DISCONNECT / T-DATA
+•	[NRBC] : messages inter-RBC SUBSET-039 avec header 9 champs
+•	[TCP] : connexion TCP over FRMCS bearer
+•	[5G] : signalisation 5G NR Registration, PDU Session
+Acteur	Role
+ETCS OBU	Unite bord ETCS - produit/consomme les messages SUBSET-026
+OB FRMCS GW TOBA	Passerelle bord OB-GTW - gere CFM, routage IP, bearer flexibility TOBA-7510
+OB FRMCS RF	Module radio 5G NR bord - UE 5G - 1 ou 2 instances selon scenario
+FRMCS TS GW	Passerelle cote voie TSapp GW - point entree FRMCS vers RBC FIS-7970
+RBC1	Radio Block Centre cedant Handing Over RBC
+RBC2	Radio Block Centre acceptant Accepting RBC
+References : SUBSET-026 v4.0.0, SUBSET-037-3 v4.1.4, SUBSET-039 v3.2.0, TOBA-7510 v1.0.0, TOBA-7540, FFFIS-7950, FIS-7970
+________________________________________
+Scenario 1 - Handover RBC sans changement de reseau FRMCS intra-PLMN
+Session 5G maintenue sur PLMN-A tout au long du handover. Seule la destination TCP de la session EuroRadio change RBC1 vers RBC2. Architecture : un seul module RF actif.
 sequenceDiagram
     autonumber
     participant OBU as ETCS OBU
-    participant GW as OB FRMCS GW/TOBA
+    participant GW as OB FRMCS GW TOBA
     participant RF as OB FRMCS RF
     participant TSGW as FRMCS TS GW
     participant RBC1 as RBC1 Handing Over
     participant RBC2 as RBC2 Accepting
 
     Note over OBU,RBC2: Phase 0 - Situation nominale
-    Note over OBU,GW: ETCS OBU - SUBSET-026 par7<br/>Header: NID_MESSAGE(8b) | L_MESSAGE(10b) | T_TRAIN(32b) | M_ACK(1b) | NID_LRBG(24b)
-    OBU->>GW: T-DATA.request(SafeData)<br/>payload SUBSET-026 encapsule safety layer SUBSET-037-2
-    GW->>RF: TCP/IP flow dst=IP_RBC1:19990<br/>TcpUserTimeout=300s
-    RF-->>TSGW: 5G NR DRB QoS ETCS - PLMN A
-    TSGW-->>RBC1: TCP stream - EuroRadio session active
+    Note over OBU,GW: [ETCS] Header SUBSET-026 par7<br/>NID_MESSAGE 8b | L_MESSAGE 10b | T_TRAIN 32b | M_ACK 1b | NID_LRBG 24b
+    OBU->>GW: [ETCS] T-DATA.request SafeData<br/>SUBSET-026 msg encapsule safety layer SUBSET-037-2
+    GW->>RF: [TCP] flow dst=IP_RBC1:19990 TcpUserTimeout=300s
+    RF-->>TSGW: [5G] NR DRB QoS ETCS PLMN-A
+    TSGW-->>RBC1: [TCP] EuroRadio session active
 
     Note over OBU,RBC2: Phase 1 - Preparation inter-RBC SUBSET-039
-    Note over RBC1,RBC2: NRBC Header 9 champs<br/>NID_NRBCMESSAGE(8b) | L_MESSAGE(10b) | T_NRBC(32b)<br/>NID_SENDER(14b) | NID_RECEIVER(14b)<br/>NID_C_SENDER(10b) | NID_C_RECEIVER(10b)<br/>NID_OPERATIONAL(32b) | NID_ENGINE(32b)
-    RBC1->>RBC2: NRBC Handover Announcement<br/>Body: NID_OPERATIONAL(32b) | Q_SCALE(2b) | D_RBCTR(15b)<br/>MA context packets 21/27
-    RBC2-->>RBC1: NRBC Handover Announcement ACK<br/>NID_NRBCMESSAGE(ACK) | T_NRBC(32b) | NID_ENGINE(32b)
+    Note over RBC1,RBC2: [NRBC] Header 9 champs<br/>NID_NRBCMESSAGE 8b | L_MESSAGE 10b | T_NRBC 32b<br/>NID_SENDER 14b | NID_RECEIVER 14b<br/>NID_C_SENDER 10b | NID_C_RECEIVER 10b<br/>NID_OPERATIONAL 32b | NID_ENGINE 32b
+    RBC1->>RBC2: [NRBC] Handover Announcement<br/>Body: Q_SCALE 2b | D_RBCTR 15b | MA context packets 21 et 27
+    RBC2-->>RBC1: [NRBC] Handover Announcement ACK<br/>NID_NRBCMESSAGE ACK | T_NRBC 32b | NID_ENGINE 32b
 
-    Note over OBU,RBC2: Phase 2 - Ordre de handover OBU SUBSET-026
-    Note over RBC1,TSGW: RBC1 compose Msg 24 General Message<br/>avec Packet 131 RBC Transition Order
-    RBC1->>TSGW: Msg 24 + Packet 131<br/>NID_PACKET=131(8b) | Q_DIR(2b) | L_PACKET=69(13b)<br/>Q_SCALE(2b) | D_RBCTR(15b)<br/>NID_C=NID_C_RBC2(10b) | NID_RBC=ID_RBC2(14b)<br/>NID_MN=PLMN_A(6x4b=24b) | Q_RBC(1b)<br/>PHONE_NUMBER=RBC2_SIP(8x4b=32b)
-    TSGW->>GW: T-DATA.indication(SafeData)<br/>forward SUBSET-026 msg vers OBU
-    GW->>OBU: Packet 131 delivre<br/>OBU extrait NID_C_RBC2 | NID_RBC2 | PHONE_NUMBER_RBC2
+    Note over OBU,RBC2: Phase 2 - Ordre de handover vers OBU SUBSET-026
+    Note over RBC1,TSGW: [ETCS] RBC1 compose Msg 24 General Message avec Packet 131 RBC Transition Order
+    RBC1->>TSGW: [ETCS] Msg 24 + Packet 131<br/>NID_PACKET=131 8b | Q_DIR 2b | L_PACKET=69 13b<br/>Q_SCALE 2b | D_RBCTR 15b<br/>NID_C=NID_C_RBC2 10b | NID_RBC=ID_RBC2 14b<br/>NID_MN=PLMN_A 6x4b=24b | Q_RBC 1b<br/>PHONE_NUMBER=RBC2_SIP 8x4b=32b
+    TSGW->>GW: [CFM] T-DATA.indication SafeData forward SUBSET-026 vers OBU
+    GW->>OBU: [ETCS] Packet 131 delivre<br/>OBU extrait NID_C_RBC2 | NID_RBC2 | PHONE_NUMBER_RBC2
 
     Note over OBU,RBC2: Phase 3 - Etablissement session EuroRadio vers RBC2
-    OBU->>GW: T-CONNECT.request(FRMCS_CED_RBC2)<br/>FRMCS_CED={NID_RBC2, IP_RBC2, port=19990, PLMN_A, QoS_ETCS}
-    Note over GW,RF: Bearer 5G PLMN A reutilise - pas de nouvelle PDU Session
-    GW->>RF: TCP SYN dst=IP_RBC2:19990<br/>MSS=1400 TcpUserTimeout=300s
-    RF-->>TSGW: 5G NR DRB existant - route vers IP_RBC2
-    TSGW-->>RBC2: TCP SYN - nouvelle session EuroRadio entrante
-    RBC2-->>TSGW: TCP SYN-ACK
-    TSGW-->>GW: TCP ESTABLISHED
-    GW-->>OBU: T-CONNECT.confirm(CID_RBC2, status=OK)
-    Note over OBU,RBC2: Session initiale make-before-break SUBSET-026 par3.5.3<br/>OBU->RBC2: Msg 155 NID_MESSAGE=155 | T_TRAIN(32b) | NID_ENGINE(32b)<br/>RBC2->OBU: Msg 32 NID_MESSAGE=32 | T_TRAIN(32b) | M_VERSION(7b)<br/>RBC2->OBU: Msg 38 NID_MESSAGE=38 | T_TRAIN(32b) | NID_LRBG(24b)
+    OBU->>GW: [CFM] T-CONNECT.request FRMCS_CED_RBC2<br/>CED={NID_RBC2, IP_RBC2, port=19990, PLMN_A, QoS_ETCS}
+    Note over GW,RF: Bearer 5G PLMN-A reutilise - pas de nouvelle PDU Session
+    GW->>RF: [TCP] SYN dst=IP_RBC2:19990 MSS=1400 TcpUserTimeout=300s
+    RF-->>TSGW: [5G] NR DRB existant route vers IP_RBC2
+    TSGW-->>RBC2: [TCP] SYN nouvelle session EuroRadio entrante
+    RBC2-->>TSGW: [TCP] SYN-ACK
+    TSGW-->>GW: [TCP] ESTABLISHED
+    GW-->>OBU: [CFM] T-CONNECT.confirm CID_RBC2 status=OK
+    Note over OBU,RBC2: [ETCS] Session initiale make-before-break SUBSET-026 par3.5.3<br/>OBU->RBC2: Msg 155 NID_MESSAGE=155 | T_TRAIN 32b | NID_ENGINE 32b<br/>RBC2->OBU: Msg 32 NID_MESSAGE=32 | T_TRAIN 32b | M_VERSION 7b<br/>RBC2->OBU: Msg 38 NID_MESSAGE=38 | T_TRAIN 32b | NID_LRBG 24b
 
     Note over OBU,RBC2: Phase 4 - Notification RBC2 vers RBC1 SUBSET-039
-    RBC2->>RBC1: NRBC Train Accepted<br/>NID_NRBCMESSAGE(Train_Accepted) | T_NRBC(32b) | NID_ENGINE(32b)
+    RBC2->>RBC1: [NRBC] Train Accepted<br/>NID_NRBCMESSAGE Train_Accepted | T_NRBC 32b | NID_ENGINE 32b
 
     Note over OBU,RBC2: Phase 5 - Liberation session RBC1
-    Note over OBU,GW: OBU libere session RBC1 SUBSET-026 par3.5.4<br/>OBU->RBC1: Msg 156 NID_MESSAGE=156 | T_TRAIN(32b)<br/>RBC1->OBU: Msg 39 NID_MESSAGE=39 | T_TRAIN(32b)
-    OBU->>GW: T-DISCONNECT.request(CID_RBC1, cause=NORMAL_RELEASE)
-    GW->>RF: TCP FIN dst=IP_RBC1:19990
-    RF-->>TSGW: TCP close over PLMN A DRB
-    TSGW-->>RBC1: TCP FIN-ACK - session released
-    RBC1-->>RBC2: NRBC Handover Complete<br/>NID_NRBCMESSAGE(HO_Complete) | T_NRBC(32b) | NID_ENGINE(32b)
+    Note over OBU,GW: [ETCS] Liberation SUBSET-026 par3.5.4<br/>OBU->RBC1: Msg 156 NID_MESSAGE=156 | T_TRAIN 32b<br/>RBC1->OBU: Msg 39 NID_MESSAGE=39 | T_TRAIN 32b
+    OBU->>GW: [CFM] T-DISCONNECT.request CID_RBC1 cause=NORMAL_RELEASE
+    GW->>RF: [TCP] FIN dst=IP_RBC1:19990
+    RF-->>TSGW: [5G] TCP close over PLMN-A DRB
+    TSGW-->>RBC1: [TCP] FIN-ACK session released
+    RBC1-->>RBC2: [NRBC] Handover Complete<br/>NID_NRBCMESSAGE HO_Complete | T_NRBC 32b | NID_ENGINE 32b
 
     Note over OBU,RBC2: Phase 6 - Operation nominale sous RBC2
-    OBU->>GW: T-DATA.request(SafeData) - SUBSET-026 vers RBC2
-    GW->>RF: TCP/IP dst=IP_RBC2:19990 PLMN A inchange
-    RF-->>TSGW: 5G NR DRB PLMN A - session active
-    TSGW-->>RBC2: EuroRadio session operationnelle
-```
-
----
-
-## Scénario 2 — Handover RBC avec changement de réseau FRMCS (inter-PLMN / franchissement de frontière)
-
-> RBC2 est raccordé à **PLMN B**.
-> L'OB FRMCS GW/TOBA active un second module RF (bearer flexibility TOBA-7540) pré-enregistré sur PLMN B.
-> Les deux sessions coexistent (make-before-break inter-PLMN) avant libération du bearer PLMN A.
-
-```mermaid
+    OBU->>GW: [ETCS] T-DATA.request SafeData SUBSET-026 vers RBC2
+    GW->>RF: [TCP] flow dst=IP_RBC2:19990 PLMN-A inchange
+    RF-->>TSGW: [5G] NR DRB PLMN-A session active
+    TSGW-->>RBC2: [ETCS] EuroRadio session operationnelle
+________________________________________
+Scenario 2 - Handover RBC avec changement de reseau FRMCS inter-PLMN franchissement de frontiere
+RBC2 est raccorde a PLMN-B. L OB FRMCS GW TOBA active un second module RF bearer flexibility TOBA-7540 pre-enregistre sur PLMN-B. Les deux sessions coexistent make-before-break inter-PLMN avant liberation du bearer PLMN-A.
 sequenceDiagram
     autonumber
     participant OBU as ETCS OBU
-    participant GW as OB FRMCS GW/TOBA
+    participant GW as OB FRMCS GW TOBA
     participant RF1 as OB FRMCS RF1 PLMN-A
     participant RF2 as OB FRMCS RF2 PLMN-B
     participant TSGW_A as FRMCS TS GW PLMN-A
@@ -104,126 +84,105 @@ sequenceDiagram
     participant RBC1 as RBC1 Handing Over PLMN-A
     participant RBC2 as RBC2 Accepting PLMN-B
 
-    Note over OBU,RBC2: Phase 0 - Situation nominale sur PLMN A
-    OBU->>GW: T-DATA.request(SafeData) - EuroRadio RBC1<br/>NID_MESSAGE(8b) | L_MESSAGE(10b) | T_TRAIN(32b) | M_ACK(1b) | NID_LRBG(24b)
-    GW->>RF1: TCP/IP dst=IP_RBC1:19990 TcpUserTimeout=300s
-    RF1-->>TSGW_A: 5G NR DRB PLMN A - QoS ETCS
-    TSGW_A-->>RBC1: EuroRadio TCP session active PLMN A
-    Note over GW,RF2: RF2 pre-enregistre sur PLMN B - bearer flexibility TOBA-7540<br/>5G Registration effectue - PDU Session idle ou pre-established
+    Note over OBU,RBC2: Phase 0 - Situation nominale sur PLMN-A
+    OBU->>GW: [ETCS] T-DATA.request SafeData EuroRadio RBC1<br/>NID_MESSAGE 8b | L_MESSAGE 10b | T_TRAIN 32b | M_ACK 1b | NID_LRBG 24b
+    GW->>RF1: [TCP] dst=IP_RBC1:19990 TcpUserTimeout=300s
+    RF1-->>TSGW_A: [5G] NR DRB PLMN-A QoS ETCS
+    TSGW_A-->>RBC1: [TCP] EuroRadio session active PLMN-A
+    Note over GW,RF2: [5G] RF2 pre-enregistre PLMN-B bearer flexibility TOBA-7540<br/>Registration effectue - PDU Session idle ou pre-established
 
     Note over OBU,RBC2: Phase 1 - Preparation inter-RBC SUBSET-039
-    Note over RBC1,RBC2: Interface NRBC via reseau fixe inter-operateur IP backbone
-    RBC1->>RBC2: NRBC Handover Announcement<br/>NID_NRBCMESSAGE(8b) | L_MSG(10b) | T_NRBC(32b)<br/>NID_SENDER(14b)=RBC1 | NID_RECEIVER(14b)=RBC2<br/>NID_C_SENDER(10b) | NID_C_RECEIVER(10b)<br/>NID_OPERATIONAL(32b) | NID_ENGINE(32b)<br/>Body: Q_SCALE(2b) | D_RBCTR(15b) | MA context | Q_RBC(1b)
-    RBC2-->>RBC1: NRBC Handover Announcement ACK<br/>NID_NRBCMESSAGE(ACK) | T_NRBC(32b) | NID_ENGINE(32b)
+    Note over RBC1,RBC2: [NRBC] Interface via reseau fixe inter-operateur IP backbone
+    RBC1->>RBC2: [NRBC] Handover Announcement<br/>NID_NRBCMESSAGE 8b | L_MSG 10b | T_NRBC 32b<br/>NID_SENDER 14b=RBC1 | NID_RECEIVER 14b=RBC2<br/>NID_C_SENDER 10b | NID_C_RECEIVER 10b<br/>NID_OPERATIONAL 32b | NID_ENGINE 32b<br/>Body: Q_SCALE 2b | D_RBCTR 15b | MA context | Q_RBC 1b
+    RBC2-->>RBC1: [NRBC] Handover Announcement ACK<br/>NID_NRBCMESSAGE ACK | T_NRBC 32b | NID_ENGINE 32b
 
-    Note over OBU,RBC2: Phase 2 - Ordre de handover OBU SUBSET-026 + Packet 131
-    RBC1->>TSGW_A: Msg 24 General Message + Packet 131 RBC Transition Order<br/>NID_PACKET=131(8b) | Q_DIR(2b) | L_PACKET=69(13b) | Q_SCALE(2b)<br/>D_RBCTR(15b)<br/>NID_C=NID_C_RBC2(10b) country PLMN B<br/>NID_RBC=ID_RBC2(14b)<br/>NID_MN=PLMN_B(6x4b=24b) reseau PLMN B<br/>Q_RBC(1b)<br/>PHONE_NUMBER=SIP_URI_RBC2(8x4b=32b) contact PLMN B
-    TSGW_A->>GW: T-DATA.indication(SafeData) - forward P131 vers OBU
-    GW->>OBU: Packet 131 delivre<br/>OBU detecte NID_MN=PLMN_B different de PLMN_A<br/>OBU demande connexion PLMN B a GW
+    Note over OBU,RBC2: Phase 2 - Ordre de handover OBU SUBSET-026 Packet 131
+    RBC1->>TSGW_A: [ETCS] Msg 24 + Packet 131 RBC Transition Order<br/>NID_PACKET=131 8b | Q_DIR 2b | L_PACKET=69 13b | Q_SCALE 2b<br/>D_RBCTR 15b<br/>NID_C=NID_C_RBC2 10b country PLMN-B<br/>NID_RBC=ID_RBC2 14b<br/>NID_MN=PLMN_B 6x4b=24b reseau PLMN-B<br/>Q_RBC 1b<br/>PHONE_NUMBER=SIP_URI_RBC2 8x4b=32b contact PLMN-B
+    TSGW_A->>GW: [CFM] T-DATA.indication SafeData forward P131 vers OBU
+    GW->>OBU: [ETCS] Packet 131 delivre<br/>OBU detecte NID_MN=PLMN_B different de PLMN_A<br/>OBU demande connexion PLMN-B a GW
 
-    Note over OBU,RBC2: Phase 3 - Activation bearer PLMN B - Bearer Flexibility TOBA-7540
-    OBU->>GW: T-CONNECT.request(FRMCS_CED_RBC2)<br/>FRMCS_CED={NID_RBC2, IP_RBC2, port=19990, PLMN_B, QoS_ETCS}
-    Note over GW,RF2: GW selectionne RF2 deja enregistre PLMN B<br/>Si PDU Session idle - Service Request 5G NAS vers AMF_B
-    GW->>RF2: PDU Session activation PLMN B<br/>NAS Service Request vers AMF_B<br/>PDU_Session_ID | S-NSSAI ETCS slice | DNN railway
-    RF2-->>TSGW_B: 5G NR RRC Reconfiguration + DRB etabli PLMN B<br/>GTP-U tunnel etabli
-    TSGW_B-->>GW: PDU Session active - IP_RF2_PLMNB assignee
+    Note over OBU,RBC2: Phase 3 - Activation bearer PLMN-B Bearer Flexibility TOBA-7540
+    OBU->>GW: [CFM] T-CONNECT.request FRMCS_CED_RBC2<br/>CED={NID_RBC2, IP_RBC2, port=19990, PLMN_B, QoS_ETCS}
+    Note over GW,RF2: [5G] GW selectionne RF2 deja enregistre PLMN-B<br/>Si PDU Session idle : Service Request 5G NAS vers AMF_B
+    GW->>RF2: [5G] PDU Session activation PLMN-B<br/>NAS Service Request vers AMF_B<br/>PDU_Session_ID | S-NSSAI ETCS | DNN railway
+    RF2-->>TSGW_B: [5G] NR RRC Reconfiguration + DRB etabli PLMN-B<br/>GTP-U tunnel etabli
+    TSGW_B-->>GW: [5G] PDU Session active IP_RF2_PLMNB assignee
 
-    Note over OBU,RBC2: Phase 4 - Etablissement session EuroRadio vers RBC2 sur PLMN B
-    GW->>RF2: TCP SYN dst=IP_RBC2:19990 via PLMN B bearer<br/>src=IP_RF2_PLMNB TcpUserTimeout=300s
-    RF2-->>TSGW_B: 5G NR DRB PLMN B - TCP SYN route
-    TSGW_B-->>RBC2: TCP SYN recu interface ETCS
-    RBC2-->>TSGW_B: TCP SYN-ACK
-    TSGW_B-->>GW: TCP ESTABLISHED IP_RF2_PLMNB <-> IP_RBC2
-    GW-->>OBU: T-CONNECT.confirm(CID_RBC2, status=OK, PLMN=B)
-    Note over OBU,RBC2: Session initiale OBU->RBC2 SUBSET-026 par3.5.3<br/>OBU->RBC2: Msg 155 NID_MESSAGE=155 | T_TRAIN(32b) | NID_ENGINE(32b)<br/>RBC2->OBU: Msg 32 NID_MESSAGE=32 | T_TRAIN(32b) | M_VERSION(7b)=4<br/>RBC2->OBU: Msg 38 NID_MESSAGE=38 | T_TRAIN(32b) | NID_LRBG(24b)
-    Note over GW: Deux sessions EuroRadio coexistent SUBSET-026 par5.15<br/>CID_RBC1 PLMN A active + CID_RBC2 PLMN B active
+    Note over OBU,RBC2: Phase 4 - Etablissement session EuroRadio vers RBC2 sur PLMN-B
+    GW->>RF2: [TCP] SYN dst=IP_RBC2:19990 bearer PLMN-B<br/>src=IP_RF2_PLMNB TcpUserTimeout=300s
+    RF2-->>TSGW_B: [5G] NR DRB PLMN-B TCP SYN route
+    TSGW_B-->>RBC2: [TCP] SYN recu interface ETCS
+    RBC2-->>TSGW_B: [TCP] SYN-ACK
+    TSGW_B-->>GW: [TCP] ESTABLISHED IP_RF2_PLMNB to IP_RBC2
+    GW-->>OBU: [CFM] T-CONNECT.confirm CID_RBC2 status=OK PLMN=B
+    Note over OBU,RBC2: [ETCS] Session initiale OBU->RBC2 SUBSET-026 par3.5.3<br/>OBU->RBC2: Msg 155 NID_MESSAGE=155 | T_TRAIN 32b | NID_ENGINE 32b<br/>RBC2->OBU: Msg 32 NID_MESSAGE=32 | T_TRAIN 32b | M_VERSION 7b=4<br/>RBC2->OBU: Msg 38 NID_MESSAGE=38 | T_TRAIN 32b | NID_LRBG 24b
+    Note over GW: [CFM] Deux sessions EuroRadio coexistent SUBSET-026 par5.15<br/>CID_RBC1 PLMN-A active + CID_RBC2 PLMN-B active
 
     Note over OBU,RBC2: Phase 5 - Notification RBC2 vers RBC1 SUBSET-039
-    RBC2->>RBC1: NRBC Train Accepted<br/>NID_NRBCMESSAGE(Train_Accepted) | T_NRBC(32b) | NID_ENGINE(32b)
+    RBC2->>RBC1: [NRBC] Train Accepted<br/>NID_NRBCMESSAGE Train_Accepted | T_NRBC 32b | NID_ENGINE 32b
 
-    Note over OBU,RBC2: Phase 6 - Liberation session RBC1 et bearer PLMN A
-    Note over OBU,GW: OBU libere session RBC1 SUBSET-026 par3.5.4<br/>OBU->RBC1: Msg 156 NID_MESSAGE=156 | T_TRAIN(32b)<br/>RBC1->OBU: Msg 39 NID_MESSAGE=39 | T_TRAIN(32b)
-    OBU->>GW: T-DISCONNECT.request(CID_RBC1, cause=NORMAL_RELEASE)
-    GW->>RF1: TCP FIN dst=IP_RBC1:19990 PLMN A
-    RF1-->>TSGW_A: TCP close over PLMN A DRB
-    TSGW_A-->>RBC1: TCP FIN-ACK - session released
-    RBC1-->>RBC2: NRBC Handover Complete<br/>NID_NRBCMESSAGE(HO_Complete) | T_NRBC(32b) | NID_ENGINE(32b)
-    Note over GW,RF1: GW decision TOBA-7540 bearer management<br/>Option 1 - Detach PLMN A - NAS PDU Session Release vers AMF_A<br/>Option 2 - Maintien RF1 actif pour redondance radio
+    Note over OBU,RBC2: Phase 6 - Liberation session RBC1 et bearer PLMN-A
+    Note over OBU,GW: [ETCS] Liberation SUBSET-026 par3.5.4<br/>OBU->RBC1: Msg 156 NID_MESSAGE=156 | T_TRAIN 32b<br/>RBC1->OBU: Msg 39 NID_MESSAGE=39 | T_TRAIN 32b
+    OBU->>GW: [CFM] T-DISCONNECT.request CID_RBC1 cause=NORMAL_RELEASE
+    GW->>RF1: [TCP] FIN dst=IP_RBC1:19990 PLMN-A
+    RF1-->>TSGW_A: [5G] TCP close over PLMN-A DRB
+    TSGW_A-->>RBC1: [TCP] FIN-ACK session released
+    RBC1-->>RBC2: [NRBC] Handover Complete<br/>NID_NRBCMESSAGE HO_Complete | T_NRBC 32b | NID_ENGINE 32b
+    Note over GW,RF1: [5G] Decision TOBA-7540 bearer management<br/>Option 1 - Detach PLMN-A NAS PDU Session Release vers AMF_A<br/>Option 2 - Maintien RF1 actif pour redondance radio
 
-    Note over OBU,RBC2: Phase 7 - Operation nominale sous RBC2 PLMN B
-    OBU->>GW: T-DATA.request(SafeData) - SUBSET-026 vers RBC2
-    GW->>RF2: TCP/IP dst=IP_RBC2:19990 PLMN B
-    RF2-->>TSGW_B: 5G NR DRB PLMN B - session active
-    TSGW_B-->>RBC2: EuroRadio session operationnelle PLMN B
-```
-
----
-
-## Référentiel des payloads clés
-
-### Packet 131 — RBC Transition Order (SUBSET-026-7 BL4 v4.0.0)
-
-| Champ | Taille | Description |
-|---|---|---|
-| `NID_PACKET` | 8 bits | = 131 |
-| `Q_DIR` | 2 bits | 0=reverse / 1=nominal / 2=both |
-| `L_PACKET` | 13 bits | Longueur totale (typiquement 69 bits) |
-| `Q_SCALE` | 2 bits | 0=10cm / 1=1m / 2=10m |
-| `D_RBCTR` | 15 bits | Distance à la transition RBC |
-| `NID_C` | 10 bits | Country/region identity du RBC acceptant |
-| `NID_RBC` | 14 bits | Identity du RBC acceptant |
-| `NID_MN` | 24 bits (6x4b) | PLMN ID (MCC+MNC) — PLMN B si inter-réseau |
-| `Q_RBC` | 1 bit | 0=last known RBC / 1=use phone number |
-| `PHONE_NUMBER` | 32 bits (8x4b) | SIP URI ou adresse IP du RBC acceptant |
-
-> En FRMCS : `NID_MN` encode le PLMN ID. Si PLMN B != PLMN A, l'OBU/GW détecte un changement de réseau et active la bearer flexibility (scénario 2).
-
-### Messages SUBSET-026 — Session management
-
-| Msg | Nom | Émetteur | Champs clés |
-|---|---|---|---|
-| 155 | Initiation comm session | OBU->RBC | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` \| `NID_ENGINE(32b)` |
-| 156 | Termination comm session | OBU->RBC | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` |
-| 32 | RBC/RIU System Version | RBC->OBU | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` \| `M_VERSION(7b)` |
-| 38 | Initiation comm session | RBC->OBU | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` \| `NID_LRBG(24b)` |
-| 39 | Acknowledgement termination | RBC->OBU | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` |
-| 24 | General Message | RBC->OBU | `NID_MESSAGE(8b)` \| `T_TRAIN(32b)` + packets optionnels |
-
-### Primitives CFM — SUBSET-037-3 v4.1.4
-
-| Primitive | Direction | Paramètres principaux |
-|---|---|---|
-| `T-CONNECT.request` | CFM User -> CFM | `FRMCS_CED` = {IP_dst, port, PLMN_ID, QoS_class} |
-| `T-CONNECT.confirm` | CFM -> CFM User | `CID`, `status` = OK/NOK |
-| `T-CONNECT.indication` | CFM -> CFM User | `CID`, `FRMCS_CED` entrant |
-| `T-DATA.request` | CFM User -> CFM | `CID`, `SafeData` SUBSET-037-2 |
-| `T-DATA.indication` | CFM -> CFM User | `CID`, `SafeData` reçu |
-| `T-DISCONNECT.request` | CFM User -> CFM | `CID`, `cause` NORMAL_RELEASE/ERROR |
-| `T-DISCONNECT.indication` | CFM -> CFM User | `CID`, `reason` |
-
-> SUBSET-037-3 §6.2.1.1.9 : "The interface is not mandatory. The service primitives describe the interface at a functional level."
-
-### Messages NRBC — SUBSET-039 v3.2.0
-
-| Message | Émetteur | Header (9 champs) | Body |
-|---|---|---|---|
-| Handover Announcement | RBC1->RBC2 | `NID_NRBCMESSAGE` \| `L_MESSAGE` \| `T_NRBC(32b)` \| `NID_SENDER(14b)` \| `NID_RECEIVER(14b)` \| `NID_C_SENDER(10b)` \| `NID_C_RECEIVER(10b)` \| `NID_OPERATIONAL(32b)` \| `NID_ENGINE(32b)` | Train position, MA context |
-| Handover Announcement ACK | RBC2->RBC1 | idem | — |
-| Train Accepted | RBC2->RBC1 | idem | comm OBU établie |
-| Handover Complete | RBC1->RBC2 | idem | — |
-
----
-
-## Comparaison synthétique
-
-| Dimension | Scénario 1 intra-PLMN | Scénario 2 inter-PLMN |
-|---|---|---|
-| **Bearer 5G** | PDU Session unique PLMN A | 2 PDU Sessions PLMN A + PLMN B |
-| **Modules RF** | RF unique réutilisé | RF1 PLMN A + RF2 PLMN B dual-attach |
-| **P131 NID_MN** | NID_MN = PLMN A | NID_MN = PLMN B -> bearer flexibility |
-| **T-CONNECT CED** | PLMN_A | PLMN_B -> GW route vers RF2 |
-| **Coexistence sessions** | Brève TCP setup ~ms | Prolongée Registration 5G + PDU Session ~s |
-| **Ref. SUBSET-026** | par5.15 + P131 | par5.15 + P131 NID_MN PLMN B |
-| **Ref. SUBSET-037-3** | T-CONNECT CED PLMN A | T-CONNECT CED PLMN B |
-| **Ref. TOBA** | TOBA-7510 CFM | TOBA-7510 + TOBA-7540 bearer flexibility |
-| **Ref. 3GPP** | Ng intra-AMF | Ng inter-AMF inter-PLMN Rel-15+ |
+    Note over OBU,RBC2: Phase 7 - Operation nominale sous RBC2 PLMN-B
+    OBU->>GW: [ETCS] T-DATA.request SafeData SUBSET-026 vers RBC2
+    GW->>RF2: [TCP] dst=IP_RBC2:19990 PLMN-B
+    RF2-->>TSGW_B: [5G] NR DRB PLMN-B session active
+    TSGW_B-->>RBC2: [ETCS] EuroRadio session operationnelle PLMN-B
+________________________________________
+Referentiel des payloads cles
+Packet 131 - RBC Transition Order SUBSET-026-7 BL4 v4.0.0
+Champ	Taille	Description
+NID_PACKET	8 bits	= 131
+Q_DIR	2 bits	0=reverse / 1=nominal / 2=both
+L_PACKET	13 bits	Longueur totale typiquement 69 bits
+Q_SCALE	2 bits	0=10cm / 1=1m / 2=10m
+D_RBCTR	15 bits	Distance a la transition RBC
+NID_C	10 bits	Country/region identity RBC acceptant
+NID_RBC	14 bits	Identity RBC acceptant
+NID_MN	24 bits 6x4b	PLMN ID MCC+MNC - PLMN-B si inter-reseau
+Q_RBC	1 bit	0=last known RBC / 1=use phone number
+PHONE_NUMBER	32 bits 8x4b	SIP URI ou adresse IP RBC acceptant
+En FRMCS : NID_MN encode le PLMN ID. Si PLMN-B != PLMN-A, l OBU/GW detecte un changement de reseau et active la bearer flexibility scenario 2.
+Messages SUBSET-026 - Session management
+Msg	Nom	Emetteur	Champs cles
+155	Initiation comm session	OBU->RBC	NID_MESSAGE 8b / T_TRAIN 32b / NID_ENGINE 32b
+156	Termination comm session	OBU->RBC	NID_MESSAGE 8b / T_TRAIN 32b
+32	RBC/RIU System Version	RBC->OBU	NID_MESSAGE 8b / T_TRAIN 32b / M_VERSION 7b
+38	Initiation comm session	RBC->OBU	NID_MESSAGE 8b / T_TRAIN 32b / NID_LRBG 24b
+39	Acknowledgement termination	RBC->OBU	NID_MESSAGE 8b / T_TRAIN 32b
+24	General Message	RBC->OBU	NID_MESSAGE 8b / T_TRAIN 32b + packets optionnels
+Primitives CFM - SUBSET-037-3 v4.1.4
+Primitive	Direction	Parametres principaux
+T-CONNECT.request	CFM User -> CFM	FRMCS_CED =
+T-CONNECT.confirm	CFM -> CFM User	CID, status = OK/NOK
+T-CONNECT.indication	CFM -> CFM User	CID, FRMCS_CED entrant
+T-DATA.request	CFM User -> CFM	CID, SafeData SUBSET-037-2
+T-DATA.indication	CFM -> CFM User	CID, SafeData recu
+T-DISCONNECT.request	CFM User -> CFM	CID, cause NORMAL_RELEASE/ERROR
+T-DISCONNECT.indication	CFM -> CFM User	CID, reason
+SUBSET-037-3 par6.2.1.1.9 : "The interface is not mandatory. The service primitives describe the interface at a functional level."
+Messages NRBC - SUBSET-039 v3.2.0
+Message	Emetteur	Header 9 champs	Body
+Handover Announcement	RBC1->RBC2	NID_NRBCMESSAGE / L_MESSAGE / T_NRBC 32b / NID_SENDER 14b / NID_RECEIVER 14b / NID_C_SENDER 10b / NID_C_RECEIVER 10b / NID_OPERATIONAL 32b / NID_ENGINE 32b	Train position, MA context
+Handover Announcement ACK	RBC2->RBC1	idem	-
+Train Accepted	RBC2->RBC1	idem	comm OBU etablie
+Handover Complete	RBC1->RBC2	idem	-
+________________________________________
+Comparaison synthetique
+Dimension	Scenario 1 intra-PLMN	Scenario 2 inter-PLMN
+Bearer 5G	PDU Session unique PLMN-A	2 PDU Sessions PLMN-A + PLMN-B
+Modules RF	RF unique reutilise	RF1 PLMN-A + RF2 PLMN-B dual-attach
+P131 NID_MN	NID_MN = PLMN-A	NID_MN = PLMN-B -> bearer flexibility
+T-CONNECT CED	PLMN_A	PLMN_B -> GW route vers RF2
+Coexistence sessions	Breve TCP setup ms	Prolongee Registration 5G + PDU Session s
+Ref. SUBSET-026	par5.15 + P131	par5.15 + P131 NID_MN PLMN-B
+Ref. SUBSET-037-3	T-CONNECT CED PLMN-A	T-CONNECT CED PLMN-B
+Ref. TOBA	TOBA-7510 CFM	TOBA-7510 + TOBA-7540 bearer flexibility
+Ref. 3GPP	Ng intra-AMF	Ng inter-AMF inter-PLMN Rel-15+

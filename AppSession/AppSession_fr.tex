@@ -1,0 +1,390 @@
+% frmcs_appsession_fr.tex  — Draft v2.4
+% XeLaTeX — ETSI FRMCS Concept de Session Applicative (Français)
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\setmainfont[SmallCapsFont = Avenir LT Std 35 Light]{Avenir LT Std 35 Light}
+\setsansfont{Avenir LT Std 45 Book}
+
+\usepackage{geometry}\geometry{a4paper,margin=2.5cm}
+\usepackage{polyglossia}\setdefaultlanguage{french}
+\usepackage[table]{xcolor}
+\usepackage{microtype,booktabs,longtable,array,listings,hyperref,titlesec,enumitem,soul,parskip}
+\usepackage{pifont}
+\newcommand{\cmark}{\ding{51}}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{etsiblue}{RGB}{0,70,127}
+\definecolor{noteblue}{RGB}{230,240,255}
+
+\lstset{backgroundcolor=\color{codebg},basicstyle=\small\ttfamily,breaklines=true,
+  frame=single,framerule=0.4pt,rulecolor=\color{gray!40},
+  xleftmargin=6pt,xrightmargin=6pt,aboveskip=8pt,belowskip=4pt,
+  showstringspaces=false,keepspaces=true}
+
+\titleformat{\section}{\large\bfseries\sffamily\color{etsiblue}}{{\thesection}}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries\sffamily\color{etsiblue}}{{\thesubsection}}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\sffamily}{{\thesubsubsection}}{1em}{}
+
+\newenvironment{notebox}{%
+  \begin{center}\begin{tabular}{|p{0.93\textwidth}|}\hline\rowcolor{noteblue}
+}{\\\hline\end{tabular}\end{center}}
+
+% Subscript shorthand for interface names
+\newcommand{\OBAPP}{OB\textsubscript{APP}}
+\newcommand{\TSAPP}{TS\textsubscript{APP}}
+
+\newcommand{\svcref}{\texttt{svcSessionRef}}
+\newcommand{\appcall}{\texttt{appSessionId\_call}}
+\newcommand{\appterm}{\texttt{appSessionId\_term}}
+
+\hypersetup{colorlinks=true,linkcolor=etsiblue,urlcolor=etsiblue,
+  pdfauthor={R2DATO D25.3},pdftitle={ETSI FRMCS -- Concept de Session Applicative}}
+
+\begin{document}
+
+\begin{titlepage}
+  \vspace*{3cm}{\sffamily\color{etsiblue}
+    {\Huge\bfseries ETSI FRMCS\\[0.4em]Concept de Session Applicative}\\[1.5em]
+    {\Large Proposition de modifications ETSI TS 103\,764, TS 103\,765-3/4/5}\\[2em]
+    {\large Contribution de travail -- Draft v2.4}\\[0.5em]
+    {\normalsize R2DATO D25.3 -- Concept Paper FRMCS}\\[4em]
+    \hrule\vspace{0.5em}
+    {\small\textbf{Documents cibles :} ETSI TS 103\,764 (RT-0095),
+      TS 103\,765-3 (RT-0097), TS 103\,765-4 (RT-0099), TS 103\,765-5 (RT-00104)\\[0.3em]
+      \textbf{Documents inchangés :} toutes les spécifications UIC (FFFIS-7950,
+      FIS-7970, FRS FU-7120, AT-7800, TOBA FRS-7510)}}
+\end{titlepage}
+
+\tableofcontents\clearpage
+
+% ── 1. PRINCIPE ARCHITECTURAL ───────────────────────────────────────────────
+\section{Principe architectural}
+
+\subsection{Reformulation de la notion de session}
+
+Dans les TS ETSI, \textbf{« session »} désignait le tunnel MCData IPcon établi par la
+GW (ce que la présente proposition appelle \textbf{session de service}). Redéfinition :
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{« session »} : session applicative -- communication entre deux
+    applications FRMCS, composée d'une ou plusieurs sessions de service.
+  \item \textbf{« session de service »} : bearer individuel. La première est
+    nécessairement MCx (MCData IPcon) -- inchangé. Les additionnelles peuvent être
+    tout type MCx ou futurs services critiques ferroviaires (R2DATO D25.3 Part B).
+\end{itemize}
+
+Toutes les occurrences internes « session » $\to$ « session de service » dans les TS.
+Identifiants applicatifs (\texttt{sessionId}, \texttt{POST /sessions},
+\texttt{openSession*}, \texttt{closeSession*}, \texttt{incomingSessionNotif*},
+\texttt{open session}) : \textbf{inchangés}.
+
+\begin{notebox}
+  \textbf{Ce qui change pour les applications : rien.} Les interfaces \OBAPP\ et
+  \TSAPP\ sont strictement inchangées. Les specs UIC utilisent déjà « session » au
+  sens applicatif -- leur terminologie est désormais naturellement alignée.
+\end{notebox}
+
+\subsection{Pourquoi l'ASAS plutôt que le champ AnyExt du SIP INVITE}
+
+RT-0097 §6.2.2.3 porte déjà des données applicatives dans \texttt{AnyExt} (format
+« not specified »). Techniquement faisable pour MCx, mais structurellement exclu :
+un futur service critique non-MCx n'a pas de SIP INVITE. L'ASAS agnostique est le
+seul mécanisme survivant à la séparation des strates (R2DATO D25.3 Part B).
+
+\subsection{Résolution d'identifiants applicatifs (AIR)}
+
+La fonction AIR résout le \texttt{remoteId} en \textbf{identifiant de service}
+(MCx ou futur service critique).
+\textbf{Règles pour la première édition -- entièrement spécifiées :}
+
+\begin{enumerate}[leftmargin=2em]
+  \item Si \texttt{remoteId} se termine par \texttt{.ertms} (format ETCS
+    \texttt{id.ty.cc.ertms}, UIC AT-7800) : complétion par le domaine courant
+    \textrightarrow\ \texttt{id.ty.cc.ertms@current\_domain}.
+    Conforme aux specs UIC actuelles. Fonctionnel mais non-optimal en zone de
+    chevauchement de domaines.
+  \item Sinon : pass-through FA MCx -- comportement identique à l'historique.
+\end{enumerate}
+
+\begin{notebox}
+  La fonction AIR est conçue comme un \textbf{point d'extension}. Les éditions
+  futures pourront introduire une résolution DNS ou un mapping FROP plus précis
+  sans impact sur \OBAPP, \TSAPP, SIP ni les specs UIC (ERJU/OCORA).
+\end{notebox}
+
+\subsection{Mécanisme d'initialisation}
+
+Une fois la première session de service établie (SIP + GRE inchangés), chaque GW
+expose un \textbf{ASAS} accessible sur son adresse IP post-NAT (SD\_PUB\_IP,
+cf.\ §\ref{sec:nat}). La GW appelante pilote :
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Initialisation} : POST à l'ASAS ; reçoit \appterm, clé Ed25519,
+    liste d'alias, politique multipath, période keepalive.
+  \item \textbf{Sessions de service additionnelles} : établies selon liste d'alias +
+    FROP ; chacune déclarée à l'ASAS avec \texttt{sessionToken} signé.
+  \item \textbf{Keepalive intelligent} : envoyé uniquement si silence applicatif
+    $\geq$ T\_KA sur un \svcref\ donné (cf.\ §\ref{sec:ka}).
+  \item \textbf{Mise à jour alias} : PATCH immédiat de la GW destinatrice sur tout
+    nouvel enregistrement d'alias ou d'identifiant de service. Sans configuration.
+  \item \textbf{Libération} : DELETE à l'ASAS + libération de chaque session de
+    service selon son propre protocole.
+\end{enumerate}
+
+\subsection{Cycle de vie de la session applicative}
+
+Vivante tant qu'au moins une session de service est \texttt{ACTIVE} ou
+\texttt{DEGRADED}. Timer de recovery : INTEGER(1..180)\,s (FROP) ;
+$\leq 5$\,s pour ETCS/ATP (AT-7800 Annex A.6).
+
+% ── 2. CONCEPTS CLÉS ────────────────────────────────────────────────────────
+\section{Concepts clés}
+
+\subsection{Terminologie}
+
+\begin{longtable}{>{\bfseries}p{3.8cm} p{10.5cm}}
+  \toprule Terme & Définition \\ \midrule \endhead
+  session & Communication applicative entre deux applications FRMCS, composée
+    d'une ou plusieurs sessions de service. Identifiée par \texttt{sessionId}
+    (\OBAPP/\TSAPP), en interne par (\appcall, \appterm). \\[0.3em]
+  session de service & Bearer individuel, transparent aux applications.
+    La première est nécessairement MCx (MCData IPcon). Les additionnelles
+    peuvent être MCx ou futurs services critiques. Identifiée par \svcref. \\[0.3em]
+  open session & Session non libérée (inchangé). \\[0.3em]
+  AIR & Fonction interne résolvant \texttt{remoteId} en \textbf{identifiant de
+    service} (MCx ou futur service critique). Règles v1 entièrement spécifiées :
+    \texttt{*.ertms} \textrightarrow\ \texttt{*.ertms@current\_domain} ;
+    sinon pass-through FA MCx. Point d'extension (DNS/FROP, ERJU/OCORA). \\[0.3em]
+  ASM & Fonction interne gérant le cycle de vie des sessions et sessions de
+    service, pilotant les interactions ASAS. \\[0.3em]
+  ASAS & Serveur REST/TLS sur l'IP post-NAT de la GW (SD\_PUB\_IP).
+    Ancrage de confiance : première session de service MCx. Clés Ed25519 suffisent.
+    Absorbe \texttt{FUTURE\_CRITICAL\_SERVICE} sans modification. \\[0.3em]
+  GW appelante & Initie \texttt{POST /sessions} via \OBAPP.
+    Dérive l'IP ASAS de l'IP source SIP post-NAT. \\[0.3em]
+  GW destinatrice & Expose l'ASAS. Construit la liste d'alias ; DOIT envoyer
+    immédiatement \texttt{PATCH /aliases} sur tout nouveau enregistrement ;
+    notifie l'application via \TSAPP\ (\texttt{incomingSessionNotif*}). \\[0.3em]
+  liste d'alias & Liste dynamique d'identifiants de service + types + domaines.
+    Mise à jour immédiate via \texttt{PATCH /aliases} -- sans configuration FROP. \\[0.3em]
+  identifiant de service & Identifiant pour établir une session de service, quel
+    que soit le type. FA ou MC Service User ID pour MCx ; tout identifiant
+    associable à l'utilisateur pour les futurs services critiques. \\[0.3em]
+  timer de recovery & INTEGER(1..180)\,s (FROP) ; $\leq 5$\,s pour ETCS/ATP
+    (AT-7800 Annex A.6). \\[0.3em]
+  T\_KA & Période keepalive : INTEGER(1..10)\,s (application profile).
+    Règle : T\_KA $\leq$ timer\_recovery\,/\,2 ($\leq 2,5$\,s pour ETCS/ATP).
+    $N = 2$ échecs consécutifs (fixe) \textrightarrow\ \texttt{DEGRADED}. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Identifiants de session}
+
+\begin{itemize}[leftmargin=2em]
+  \item \appcall\ (UUID v4) : GW appelante, stable pour toute la durée de la session.
+  \item \appterm\ (UUID v4) : GW destinatrice à l'init. ASAS. Analogue aux TEIDs GTP.
+  \item \svcref\ (UUID v4) : \textbf{Stable et immuable}, y compris lors du recovery.
+  \item \texttt{svcSessionId} (natif) : SIP Call-ID pour MCx. Corrélateur ASAS.
+    Peut changer lors d'un recovery.
+\end{itemize}
+
+\subsection{Modèle de confiance et authentification}
+\label{sec:trust}
+
+\textbf{La première session de service MCx est un service sûr déjà en charge
+d'identifier les parties} -- ancrage de confiance suffisant.
+
+\subsubsection*{Niveau 1 -- Confidentialité du canal (TLS 1.3)}
+
+Certificat serveur \textbf{auto-signé} possible -- aucune PKI inter-opérateur.
+
+\begin{notebox}
+  \textbf{Note FSNNI multi-hop} : le topology hiding ne compromet pas la confiance --
+  le \texttt{sessionToken} Ed25519 protège l'intégrité par message indépendamment
+  du chemin réseau. Seule contrainte : routabilité ASAS sur SD\_PUB\_IP
+  (§\ref{sec:nat}).
+\end{notebox}
+
+\subsubsection*{Niveau 2 -- Ancrage de confiance}
+
+Le MC Service Server a authentifié la GW appelante. Échange Ed25519 = bootstrapping sûr.
+
+\subsubsection*{Niveau 3 -- Authentification par message (sessionToken Ed25519)}
+
+\begin{lstlisting}[language={}]
+sessionToken = Sign(sk_call,
+  appSessionId_call || 0x00 || appSessionId_term || 0x00 ||
+  svcSessionRef     || 0x00 || svcSessRequestTime || 0x00 ||
+  svcSessAcceptTime)
+// Recovery : ajouter 0x00 || replSvcSessionRef
+ackToken = Sign(sk_term, meme entree)
+\end{lstlisting}
+
+\subsection{Keepalive intelligent}
+\label{sec:ka}
+
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{T\_KA} : INTEGER(1..10)\,s (application profile) ;
+    $\leq 2,5$\,s pour ETCS/ATP.
+  \item \textbf{$N = 2$} échecs consécutifs (fixe) \textrightarrow\ \texttt{DEGRADED}.
+  \item Recovery : nouvelle session avec même \svcref\ + token signé.
+\end{itemize}
+
+\subsection{Adressage ASAS et modèle NAT}
+\label{sec:nat}
+
+\textbf{Règle d'adressage ASAS (résolue)} : IP source post-NAT du signalement SIP
+(SD\_PUB\_IP, RT-0097 §6.2.2.4). Aucune extraction de header SIP. Port FROP.
+
+% ── 3. RÈGLE DE REMPLACEMENT ────────────────────────────────────────────────
+\section{Règle de remplacement terminologique dans les TS ETSI}
+
+\begin{longtable}{p{5.5cm} p{4cm} p{4.5cm}}
+  \toprule Contexte & Terme actuel & Terme proposé \\ \midrule \endhead
+  Bearer MCx interne & session & \textbf{session de service} \\
+  Établissement MCx interne & session establishment & \textbf{service session} establishment \\
+  Libération MCx interne & session release & \textbf{service session} release \\
+  Multipath interne & Multipath session & \textbf{Multipath service session} \\
+  Identifiant \OBAPP/\TSAPP & \texttt{sessionId} & \textbf{inchangé} \\
+  Demande application & \texttt{POST /sessions}, \texttt{openSession*} & \textbf{inchangé} \\
+  Notification entrante & \texttt{incomingSessionNotif*} & \textbf{inchangé} \\
+  Libération application & \texttt{closeSession*}, \texttt{DELETE /sessions} & \textbf{inchangé} \\
+  État applicatif & \texttt{open session} & \textbf{inchangé} \\
+  \bottomrule
+\end{longtable}
+
+% ── 4. MODIFICATIONS ETSI ───────────────────────────────────────────────────
+\section{Modifications ETSI proposées}
+
+\subsection{ETSI TS 103\,764 (RT-0095) -- Annexe normative X}
+
+\paragraph{X.1 -- Périmètre}
+API inter-GW agnostique au type de session de service. Non visible des applications.
+Ne modifie aucune spec UIC ni protocole de service. Absorbe \texttt{FUTURE\_CRITICAL\_SERVICE}
+sans modification de la présente annexe.
+
+\paragraph{X.2 -- Transport et modèle de confiance}
+
+\textbf{Transport :} TLS 1.3, HTTP/2 + JSON. Port : FROP.
+\textbf{Certificat serveur :} Auto-signé ou CA locale.
+\textbf{Adresse IP ASAS :} IP source post-NAT SIP (SD\_PUB\_IP, RT-0097 §6.2.2.4).
+\textbf{Modèle de confiance :} Ancrage MCx + clés Ed25519. Pas de PKI inter-GW.
+\textbf{Sérialisation :} UTF-8 + séparateurs \texttt{0x00} (cf.\ §\ref{sec:trust}).
+\textbf{Timers :} recovery INTEGER(1..180)\,s (FROP) ; T\_KA INTEGER(1..10)\,s
+(application profile) ; $N = 2$ (fixe).
+\textbf{Option mTLS :} Accord bilatéral FSNNI OOB (FROP).
+
+\paragraph{X.3 -- Initialisation (\texttt{POST /asas/appsessions})}
+
+\begin{lstlisting}[language={}]
+// Requete
+{ "appSessionId_call": "uuid-v4", "svcSessionRef_1": "uuid-v4",
+  "svcSessionId_1": "id-natif", "callingPublicKey": "base64(Ed25519)",
+  "keepaliveReq": 2,
+  "mpCapabilities": { "supportedPolicies": ["DUPLICATION","RECOVERY"], "maxPaths": 4 } }
+
+// Reponse 200 OK
+{ "appSessionId_term": "uuid-v4", "svcSessionRef_1": "uuid-v4",
+  "terminatingPublicKey": "base64(Ed25519)", "keepaliveAccepted": 2,
+  "mpPolicy": { "policy": "DUPLICATION|RECOVERY|LOADBALANCE|NONE", "activePaths": 2 },
+  "advertisedAliases": [{ "svcSessionRef": "uuid-v4",
+    "serviceType": "MCX|FUTURE_CRITICAL_SERVICE",
+    "serviceDomain": "string", "serviceId": "string",
+    "reachability": "CURRENT|ALTERNATIVE" }] }
+\end{lstlisting}
+
+\paragraph{X.4 -- Declaration / recovery}
+
+\begin{lstlisting}[language={}]
+{ "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
+  "svcSessionRef": "uuid-v4", "serviceType": "MCX|FUTURE_CRITICAL_SERVICE",
+  "svcSessionId": "id-natif", "svcSessRequestTime": "ISO8601",
+  "svcSessAcceptTime": "ISO8601",
+  "sessionToken": "base64(Sign(sk_call, quintuplet_0x00))" }
+// Recovery : ajouter "replSvcSessionRef": "uuid-v4"
+// Reponse : { "svcSessionRef": "uuid-v4", "ackToken": "base64(Sign(sk_term, ...))" }
+\end{lstlisting}
+
+\paragraph{X.5 -- Keepalive}
+Envoye si silence $\geq$ T\_KA.
+\begin{lstlisting}[language={}]
+{ "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
+  "svcSessionRefs": ["uuid-v4"], "timestamp": "ISO8601" }
+\end{lstlisting}
+
+\paragraph{X.6 -- Mise à jour alias (\texttt{PATCH .../aliases})}
+\textbf{Immédiat} sur tout nouvel enregistrement. Sans configuration FROP.
+\begin{lstlisting}[language={}]
+{ "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
+  "updatedAliases": [{ "svcSessionRef": "uuid-v4",
+    "serviceType": "MCX|FUTURE_CRITICAL_SERVICE", "serviceDomain": "string",
+    "serviceId": "string", "reachability": "CURRENT|ALTERNATIVE",
+    "action": "ADD|REMOVE" }] }
+\end{lstlisting}
+
+\paragraph{X.7 -- Liberation}
+\begin{lstlisting}[language={}]
+{ "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
+  "reason": "NORMAL|ERROR|TIMEOUT" }
+\end{lstlisting}
+
+\paragraph{X.8 -- Machines d'etat}
+\begin{lstlisting}[language={}]
+Session:
+[CREATING] -- 200 OK --> [ESTABLISHED] -- all lost --> [DEGRADED]
+[DEGRADED] -- >=1 ACTIVE --> [ESTABLISHED] | -- timer --> [RELEASING]
+[ESTABLISHED|CREATING] -- DELETE --> [RELEASING] -- done --> [RELEASED]
+
+Service session:
+[CREATING] -- OK --> [ACTIVE] -- 2 KA fail --> [DEGRADED] -- recovery --> [ACTIVE]
+[ACTIVE|DEGRADED] -- RELEASING --> [RELEASED]
+\end{lstlisting}
+
+\paragraph{X.9 -- Mapping erreurs \textrightarrow\ causes \OBAPP}
+
+\begin{longtable}{p{5.5cm} p{8cm}}
+  \toprule Cause ASAS & Cause \texttt{openSessionFinalAnswerNotif} \\ \midrule \endhead
+  ASAS timeout & \texttt{MCX\_ENDPOINT\_NOT\_REACHABLE} \\
+  ASAS 403 & \texttt{REMOTE\_ENDPOINT\_DECLINED} \\
+  ASAS 404 & \texttt{TERMINATING\_APPLICATION\_ENDPOINT\_NOT\_REACHABLE} \\
+  ASAS 401 & \texttt{TERMINATING\_APPLICATION\_ENDPOINT\_NOT\_ALLOWED} \\
+  \bottomrule
+\end{longtable}
+
+% ── 5. TABLEAU RÉCAPITULATIF ────────────────────────────────────────────────
+\section{Tableau récapitulatif des impacts}
+
+\begin{longtable}{p{5cm} p{6.5cm} p{2cm}}
+  \toprule Document & Nature de la modification & Specs UIC \\ \midrule \endhead
+  \textbf{ETSI TS 103\,764} & Session + service session + AIR + ASAS +
+    service identifier (§3.1) + ASM + \textbf{Annexe X} & \\
+  \textbf{ETSI TS 103\,765-3} & Remplacement + Step 1 (AIR→id de service + SD\_PUB\_IP) & inchangées \\
+  \textbf{ETSI TS 103\,765-4} & Remplacement + Step 0 + alias list (déclenchement immédiat) & inchangées \\
+  \textbf{ETSI TS 103\,765-5} & Remplacement + binding Multipath & inchangées \\
+  \textbf{UIC FFFIS-7950} & \textbf{Aucune modification} & \cmark \\
+  \textbf{UIC FIS-7970} & \textbf{Aucune modification} & \cmark \\
+  \textbf{UIC FRS FU-7120} & \textbf{Aucune modification} & \cmark \\
+  \textbf{UIC AT-7800 SRS} & \textbf{Aucune modification} & \cmark \\
+  \textbf{UIC TOBA FRS-7510} & \textbf{Aucune modification} & \cmark \\
+  \textbf{3GPP TS 24.582/24.379} & \textbf{Aucune modification} & \\
+  \bottomrule
+\end{longtable}
+
+% ── 6. POINTS OUVERTS ───────────────────────────────────────────────────────
+\section{Points ouverts}
+
+Tous les points ouverts sont résolus. Le document est prêt pour soumission ETSI.
+
+\begin{enumerate}[leftmargin=2em]
+  \item[\st{1.}] Adresse IP ASAS / NAT -- \textit{Résolu} (§\ref{sec:nat}).
+  \item[\st{2.}] Confiance multi-hop FSNNI -- \textit{Résolu} (§\ref{sec:trust}).
+  \item[\st{3.}] Sérialisation sessionToken -- \textit{Résolu}.
+  \item[\st{4.}] Règles AIR -- \textit{Résolu}.
+  \item[\st{5.}] Timer de recovery -- \textit{Résolu} : INTEGER(1..180)\,s ; $\leq 5$\,s pour ETCS/ATP.
+  \item[\st{6.}] T\_KA / N -- \textit{Résolu} : INTEGER(1..10)\,s ; $N=2$ ; T\_KA $\leq$ timer/2.
+  \item[\st{7.}] Déclenchement liste d'alias -- \textit{Résolu} : immédiat, sans FROP.
+  \item[\st{8.}] Extensibilité -- \textit{Résolu} : champ \texttt{serviceType} ouvert.
+\end{enumerate}
+
+\end{document}

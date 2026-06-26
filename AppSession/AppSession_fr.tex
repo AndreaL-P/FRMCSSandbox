@@ -1,4 +1,4 @@
-% frmcs_appsession_fr.tex  — Draft v2.4
+% frmcs_appsession_fr.tex  — Draft v2.9
 % XeLaTeX — ETSI FRMCS Concept de Session Applicative (Français)
 \documentclass[11pt,a4paper]{article}
 
@@ -8,8 +8,8 @@
 
 \usepackage{geometry}\geometry{a4paper,margin=2.5cm}
 \usepackage{polyglossia}\setdefaultlanguage{french}
-\usepackage[table]{xcolor}
 \usepackage{microtype,booktabs,longtable,array,listings,hyperref,titlesec,enumitem,soul,parskip}
+\usepackage[table]{xcolor}
 \usepackage{pifont}
 \newcommand{\cmark}{\ding{51}}
 
@@ -30,9 +30,11 @@
   \begin{center}\begin{tabular}{|p{0.93\textwidth}|}\hline\rowcolor{noteblue}
 }{\\\hline\end{tabular}\end{center}}
 
-% Subscript shorthand for interface names
+% Interface name shorthand
 \newcommand{\OBAPP}{OB\textsubscript{APP}}
 \newcommand{\TSAPP}{TS\textsubscript{APP}}
+% Arrow substitute: robust in text and table contexts
+\newcommand{\arr}{$\to$}
 
 \newcommand{\svcref}{\texttt{svcSessionRef}}
 \newcommand{\appcall}{\texttt{appSessionId\_call}}
@@ -47,13 +49,13 @@
   \vspace*{3cm}{\sffamily\color{etsiblue}
     {\Huge\bfseries ETSI FRMCS\\[0.4em]Concept de Session Applicative}\\[1.5em]
     {\Large Proposition de modifications ETSI TS 103\,764, TS 103\,765-3/4/5}\\[2em]
-    {\large Contribution de travail -- Draft v2.4}\\[0.5em]
+    {\large Contribution de travail -- Draft v2.9}\\[0.5em]
     {\normalsize R2DATO D25.3 -- Concept Paper FRMCS}\\[4em]
     \hrule\vspace{0.5em}
     {\small\textbf{Documents cibles :} ETSI TS 103\,764 (RT-0095),
       TS 103\,765-3 (RT-0097), TS 103\,765-4 (RT-0099), TS 103\,765-5 (RT-00104)\\[0.3em]
       \textbf{Documents inchangés :} toutes les spécifications UIC (FFFIS-7950,
-      FIS-7970, FRS FU-7120, AT-7800, TOBA FRS-7510)}}
+      FIS-7970, FRS FU-7120, AT-7800, TOBA FRS-7510, EIRENE FRS, EIRENE SRS)}}
 \end{titlepage}
 
 \tableofcontents\clearpage
@@ -74,7 +76,7 @@ GW (ce que la présente proposition appelle \textbf{session de service}). Redéf
     tout type MCx ou futurs services critiques ferroviaires (R2DATO D25.3 Part B).
 \end{itemize}
 
-Toutes les occurrences internes « session » $\to$ « session de service » dans les TS.
+Toutes les occurrences internes « session » \arr\ « session de service » dans les TS.
 Identifiants applicatifs (\texttt{sessionId}, \texttt{POST /sessions},
 \texttt{openSession*}, \texttt{closeSession*}, \texttt{incomingSessionNotif*},
 \texttt{open session}) : \textbf{inchangés}.
@@ -100,8 +102,9 @@ La fonction AIR résout le \texttt{remoteId} en \textbf{identifiant de service}
 
 \begin{enumerate}[leftmargin=2em]
   \item Si \texttt{remoteId} se termine par \texttt{.ertms} (format ETCS
-    \texttt{id.ty.cc.ertms}, UIC AT-7800) : complétion par le domaine courant
-    \textrightarrow\ \texttt{id.ty.cc.ertms@current\_domain}.
+    \texttt{id.ty.cc.ertms} défini dans UIC AT-7800~§5.3, référençant
+    UNISIG SUBSET-037) : complétion par le domaine courant
+    \arr\ \texttt{id.ty.cc.ertms@current\_domain}.
     Conforme aux specs UIC actuelles. Fonctionnel mais non-optimal en zone de
     chevauchement de domaines.
   \item Sinon : pass-through FA MCx -- comportement identique à l'historique.
@@ -110,7 +113,8 @@ La fonction AIR résout le \texttt{remoteId} en \textbf{identifiant de service}
 \begin{notebox}
   La fonction AIR est conçue comme un \textbf{point d'extension}. Les éditions
   futures pourront introduire une résolution DNS ou un mapping FROP plus précis
-  sans impact sur \OBAPP, \TSAPP, SIP ni les specs UIC (ERJU/OCORA).
+  sans impact sur \OBAPP, \TSAPP, SIP ni les specs UIC, en lien avec les travaux
+  ERJU sur l'adressage ETCS dans FRMCS (UIC EIRENE~SRS, UNISIG SUBSET-037).
 \end{notebox}
 
 \subsection{Mécanisme d'initialisation}
@@ -121,15 +125,17 @@ cf.\ §\ref{sec:nat}). La GW appelante pilote :
 
 \begin{enumerate}[leftmargin=2em]
   \item \textbf{Initialisation} : POST à l'ASAS ; reçoit \appterm, clé Ed25519,
-    liste d'alias, politique multipath, période keepalive.
+    liste d'alias, politique MSP, période keepalive.
   \item \textbf{Sessions de service additionnelles} : établies selon liste d'alias +
-    FROP ; chacune déclarée à l'ASAS avec \texttt{sessionToken} signé.
+    FROP ; chacune déclarée à l'ASAS avec \texttt{sessionToken} signé, permettant
+    l'authentification mutuelle indépendamment du protocole de signalisation
+    sous-jacent.
   \item \textbf{Keepalive intelligent} : envoyé uniquement si silence applicatif
     $\geq$ T\_KA sur un \svcref\ donné (cf.\ §\ref{sec:ka}).
   \item \textbf{Mise à jour alias} : PATCH immédiat de la GW destinatrice sur tout
     nouvel enregistrement d'alias ou d'identifiant de service. Sans configuration.
   \item \textbf{Libération} : DELETE à l'ASAS + libération de chaque session de
-    service selon son propre protocole.
+    service selon son propre protocole de signalisation.
 \end{enumerate}
 
 \subsection{Cycle de vie de la session applicative}
@@ -137,6 +143,7 @@ cf.\ §\ref{sec:nat}). La GW appelante pilote :
 Vivante tant qu'au moins une session de service est \texttt{ACTIVE} ou
 \texttt{DEGRADED}. Timer de recovery : INTEGER(1..180)\,s (FROP) ;
 $\leq 5$\,s pour ETCS/ATP (AT-7800 Annex A.6).
+À l'expiration du timer, la \textbf{session applicative} est libérée.
 
 % ── 2. CONCEPTS CLÉS ────────────────────────────────────────────────────────
 \section{Concepts clés}
@@ -154,13 +161,22 @@ $\leq 5$\,s pour ETCS/ATP (AT-7800 Annex A.6).
   open session & Session non libérée (inchangé). \\[0.3em]
   AIR & Fonction interne résolvant \texttt{remoteId} en \textbf{identifiant de
     service} (MCx ou futur service critique). Règles v1 entièrement spécifiées :
-    \texttt{*.ertms} \textrightarrow\ \texttt{*.ertms@current\_domain} ;
-    sinon pass-through FA MCx. Point d'extension (DNS/FROP, ERJU/OCORA). \\[0.3em]
+    \texttt{*.ertms} \arr\ \texttt{*.ertms@current\_domain}
+    (UIC AT-7800~§5.3, réf.\ UNISIG SUBSET-037) ;
+    sinon pass-through FA MCx. Point d'extension pour une résolution future
+    (DNS/FROP, en lien avec les travaux ERJU sur l'adressage ETCS --
+    UIC EIRENE~SRS, UNISIG SUBSET-037). Non visible des applications. \\[0.3em]
   ASM & Fonction interne gérant le cycle de vie des sessions et sessions de
-    service, pilotant les interactions ASAS. \\[0.3em]
-  ASAS & Serveur REST/TLS sur l'IP post-NAT de la GW (SD\_PUB\_IP).
-    Ancrage de confiance : première session de service MCx. Clés Ed25519 suffisent.
-    Absorbe \texttt{FUTURE\_CRITICAL\_SERVICE} sans modification. \\[0.3em]
+    service, pilotant les interactions ASAS et la politique MSP. \\[0.3em]
+  ASAS & Serveur d'API REST exposé par chaque GW sur son IP post-NAT (SD\_PUB\_IP).
+    La sécurité repose sur l'authentification par message Ed25519 ; il n'existe pas
+    d'exigence normative de confidentialité des échanges ASAS entre GW. Le transport
+    HTTP PEUT être protégé par TLS (recommandé). Ancrage sur la première session de
+    service MCx -- pas de PKI inter-GW requise. \\[0.3em]
+  MSP & Multi Service Path : mécanisme inter-GW gérant plusieurs sessions de service
+    parallèles au sein d'une même session applicative. Distinct du Multipath transport
+    (RT-00104). Politique (\texttt{mspPolicy}) négociée à l'init. ASAS :
+    DUPLICATION, RECOVERY ou LOADBALANCE. \\[0.3em]
   GW appelante & Initie \texttt{POST /sessions} via \OBAPP.
     Dérive l'IP ASAS de l'IP source SIP post-NAT. \\[0.3em]
   GW destinatrice & Expose l'ASAS. Construit la liste d'alias ; DOIT envoyer
@@ -172,10 +188,10 @@ $\leq 5$\,s pour ETCS/ATP (AT-7800 Annex A.6).
     que soit le type. FA ou MC Service User ID pour MCx ; tout identifiant
     associable à l'utilisateur pour les futurs services critiques. \\[0.3em]
   timer de recovery & INTEGER(1..180)\,s (FROP) ; $\leq 5$\,s pour ETCS/ATP
-    (AT-7800 Annex A.6). \\[0.3em]
+    (AT-7800 Annex A.6). La session applicative est libérée à l'expiration. \\[0.3em]
   T\_KA & Période keepalive : INTEGER(1..10)\,s (application profile).
     Règle : T\_KA $\leq$ timer\_recovery\,/\,2 ($\leq 2,5$\,s pour ETCS/ATP).
-    $N = 2$ échecs consécutifs (fixe) \textrightarrow\ \texttt{DEGRADED}. \\
+    $N = 2$ échecs consécutifs (fixe) \arr\ \texttt{DEGRADED}. \\
   \bottomrule
 \end{longtable}
 
@@ -189,26 +205,35 @@ $\leq 5$\,s pour ETCS/ATP (AT-7800 Annex A.6).
     Peut changer lors d'un recovery.
 \end{itemize}
 
-\subsection{Modèle de confiance et authentification}
+\subsection{Modèle d'authentification}
 \label{sec:trust}
 
 \textbf{La première session de service MCx est un service sûr déjà en charge
-d'identifier les parties} -- ancrage de confiance suffisant.
+d'identifier les parties} -- ancrage d'authentification suffisant. Il n'existe pas
+d'exigence normative de confidentialité des échanges ASAS entre GW : l'ASAS opère
+dans un contexte inter-GW ferroviaire où la protection des métadonnées de session
+n'est pas un prérequis normatif.
 
-\subsubsection*{Niveau 1 -- Confidentialité du canal (TLS 1.3)}
+\subsubsection*{Niveau 1 -- Transport HTTP (TLS recommandé)}
 
-Certificat serveur \textbf{auto-signé} possible -- aucune PKI inter-opérateur.
+Le transport HTTP de l'ASAS PEUT être protégé par TLS~1.3 (recommandé pour
+l'intégrité du canal). Certificat serveur \textbf{auto-signé} possible -- aucune PKI
+inter-opérateur. TLS n'est pas normatif à ce niveau ; l'authentification normative
+est assurée par les niveaux~2 et~3. L'option mTLS est possible sur accord bilatéral
+FSNNI OOB (FROP).
 
 \begin{notebox}
-  \textbf{Note FSNNI multi-hop} : le topology hiding ne compromet pas la confiance --
-  le \texttt{sessionToken} Ed25519 protège l'intégrité par message indépendamment
-  du chemin réseau. Seule contrainte : routabilité ASAS sur SD\_PUB\_IP
-  (§\ref{sec:nat}).
+  \textbf{Note FSNNI multi-hop} : le topology hiding ne compromet pas
+  l'authentification -- le \texttt{sessionToken} Ed25519 protège l'intégrité par
+  message indépendamment du chemin réseau. Seule contrainte : routabilité ASAS sur
+  SD\_PUB\_IP (§\ref{sec:nat}).
 \end{notebox}
 
-\subsubsection*{Niveau 2 -- Ancrage de confiance}
+\subsubsection*{Niveau 2 -- Ancrage d'authentification (première session MCx)}
 
-Le MC Service Server a authentifié la GW appelante. Échange Ed25519 = bootstrapping sûr.
+Le MC Service Server a authentifié la GW appelante avant d'accepter la session.
+Échange Ed25519 sur ce canal = bootstrapping sûr : toute clé reçue à l'initialisation
+ASAS est authentique par construction.
 
 \subsubsection*{Niveau 3 -- Authentification par message (sessionToken Ed25519)}
 
@@ -221,13 +246,16 @@ sessionToken = Sign(sk_call,
 ackToken = Sign(sk_term, meme entree)
 \end{lstlisting}
 
+Sérialisation : concaténation UTF-8 avec séparateurs \texttt{0x00} -- déterministe,
+sans dépendance externe.
+
 \subsection{Keepalive intelligent}
 \label{sec:ka}
 
 \begin{itemize}[leftmargin=2em]
   \item \textbf{T\_KA} : INTEGER(1..10)\,s (application profile) ;
     $\leq 2,5$\,s pour ETCS/ATP.
-  \item \textbf{$N = 2$} échecs consécutifs (fixe) \textrightarrow\ \texttt{DEGRADED}.
+  \item \textbf{$N = 2$} échecs consécutifs (fixe) \arr\ \texttt{DEGRADED}.
   \item Recovery : nouvelle session avec même \svcref\ + token signé.
 \end{itemize}
 
@@ -245,7 +273,8 @@ ackToken = Sign(sk_term, meme entree)
   Bearer MCx interne & session & \textbf{session de service} \\
   Établissement MCx interne & session establishment & \textbf{service session} establishment \\
   Libération MCx interne & session release & \textbf{service session} release \\
-  Multipath interne & Multipath session & \textbf{Multipath service session} \\
+  Multi-chemin inter-GW (service sessions) & Multipath session & \textbf{Multi Service Path (MSP)} \\
+  Multipath transport (RT-00104) & Multipath & \textbf{Multipath} (inchangé) \\
   Identifiant \OBAPP/\TSAPP & \texttt{sessionId} & \textbf{inchangé} \\
   Demande application & \texttt{POST /sessions}, \texttt{openSession*} & \textbf{inchangé} \\
   Notification entrante & \texttt{incomingSessionNotif*} & \textbf{inchangé} \\
@@ -264,15 +293,25 @@ API inter-GW agnostique au type de session de service. Non visible des applicati
 Ne modifie aucune spec UIC ni protocole de service. Absorbe \texttt{FUTURE\_CRITICAL\_SERVICE}
 sans modification de la présente annexe.
 
-\paragraph{X.2 -- Transport et modèle de confiance}
+\paragraph{X.2 -- Transport et authentification}
 
-\textbf{Transport :} TLS 1.3, HTTP/2 + JSON. Port : FROP.
-\textbf{Certificat serveur :} Auto-signé ou CA locale.
+\textbf{Transport :} HTTP/2 + JSON. Port : FROP. Le transport HTTP PEUT être protégé
+par TLS~1.3 (recommandé) ; il n'existe pas d'exigence normative de confidentialité
+des échanges ASAS entre GW.
+
+\textbf{Certificat serveur (si TLS) :} Auto-signé ou CA locale -- aucune PKI
+inter-opérateur.
+
 \textbf{Adresse IP ASAS :} IP source post-NAT SIP (SD\_PUB\_IP, RT-0097 §6.2.2.4).
-\textbf{Modèle de confiance :} Ancrage MCx + clés Ed25519. Pas de PKI inter-GW.
+
+\textbf{Authentification normative :} Ancrage MCx + clés Ed25519. Tous les échanges
+ASAS authentifiés par signature Ed25519. Pas de PKI inter-GW requise.
+
 \textbf{Sérialisation :} UTF-8 + séparateurs \texttt{0x00} (cf.\ §\ref{sec:trust}).
+
 \textbf{Timers :} recovery INTEGER(1..180)\,s (FROP) ; T\_KA INTEGER(1..10)\,s
 (application profile) ; $N = 2$ (fixe).
+
 \textbf{Option mTLS :} Accord bilatéral FSNNI OOB (FROP).
 
 \paragraph{X.3 -- Initialisation (\texttt{POST /asas/appsessions})}
@@ -282,12 +321,13 @@ sans modification de la présente annexe.
 { "appSessionId_call": "uuid-v4", "svcSessionRef_1": "uuid-v4",
   "svcSessionId_1": "id-natif", "callingPublicKey": "base64(Ed25519)",
   "keepaliveReq": 2,
-  "mpCapabilities": { "supportedPolicies": ["DUPLICATION","RECOVERY"], "maxPaths": 4 } }
+  "mspCapabilities": { "supportedPolicies": ["DUPLICATION","RECOVERY","LOADBALANCE"],
+                       "maxPaths": 4 } }
 
 // Reponse 200 OK
 { "appSessionId_term": "uuid-v4", "svcSessionRef_1": "uuid-v4",
   "terminatingPublicKey": "base64(Ed25519)", "keepaliveAccepted": 2,
-  "mpPolicy": { "policy": "DUPLICATION|RECOVERY|LOADBALANCE|NONE", "activePaths": 2 },
+  "mspPolicy": { "policy": "DUPLICATION|RECOVERY|LOADBALANCE|NONE", "activePaths": 2 },
   "advertisedAliases": [{ "svcSessionRef": "uuid-v4",
     "serviceType": "MCX|FUTURE_CRITICAL_SERVICE",
     "serviceDomain": "string", "serviceId": "string",
@@ -341,7 +381,7 @@ Service session:
 [ACTIVE|DEGRADED] -- RELEASING --> [RELEASED]
 \end{lstlisting}
 
-\paragraph{X.9 -- Mapping erreurs \textrightarrow\ causes \OBAPP}
+\paragraph{X.9 -- Mapping erreurs \arr\ causes \OBAPP}
 
 \begin{longtable}{p{5.5cm} p{8cm}}
   \toprule Cause ASAS & Cause \texttt{openSessionFinalAnswerNotif} \\ \midrule \endhead
@@ -357,11 +397,14 @@ Service session:
 
 \begin{longtable}{p{5cm} p{6.5cm} p{2cm}}
   \toprule Document & Nature de la modification & Specs UIC \\ \midrule \endhead
-  \textbf{ETSI TS 103\,764} & Session + service session + AIR + ASAS +
+  \textbf{ETSI TS 103\,764} & Session + service session + AIR + MSP + ASAS +
     service identifier (§3.1) + ASM + \textbf{Annexe X} & \\
-  \textbf{ETSI TS 103\,765-3} & Remplacement + Step 1 (AIR→id de service + SD\_PUB\_IP) & inchangées \\
-  \textbf{ETSI TS 103\,765-4} & Remplacement + Step 0 + alias list (déclenchement immédiat) & inchangées \\
-  \textbf{ETSI TS 103\,765-5} & Remplacement + binding Multipath & inchangées \\
+  \textbf{ETSI TS 103\,765-3} & Remplacement + Step 1
+    (AIR \arr\ id de service + SD\_PUB\_IP) + MSP policy & inchangées \\
+  \textbf{ETSI TS 103\,765-4} & Remplacement + Step 0 +
+    alias list (déclenchement immédiat) + MSP & inchangées \\
+  \textbf{ETSI TS 103\,765-5} & Remplacement + binding MSP +
+    distinction Multipath/MSP & inchangées \\
   \textbf{UIC FFFIS-7950} & \textbf{Aucune modification} & \cmark \\
   \textbf{UIC FIS-7970} & \textbf{Aucune modification} & \cmark \\
   \textbf{UIC FRS FU-7120} & \textbf{Aucune modification} & \cmark \\
@@ -378,11 +421,14 @@ Tous les points ouverts sont résolus. Le document est prêt pour soumission ETS
 
 \begin{enumerate}[leftmargin=2em]
   \item[\st{1.}] Adresse IP ASAS / NAT -- \textit{Résolu} (§\ref{sec:nat}).
-  \item[\st{2.}] Confiance multi-hop FSNNI -- \textit{Résolu} (§\ref{sec:trust}).
+  \item[\st{2.}] Authentification multi-hop FSNNI -- \textit{Résolu} (§\ref{sec:trust}).
   \item[\st{3.}] Sérialisation sessionToken -- \textit{Résolu}.
-  \item[\st{4.}] Règles AIR -- \textit{Résolu}.
-  \item[\st{5.}] Timer de recovery -- \textit{Résolu} : INTEGER(1..180)\,s ; $\leq 5$\,s pour ETCS/ATP.
-  \item[\st{6.}] T\_KA / N -- \textit{Résolu} : INTEGER(1..10)\,s ; $N=2$ ; T\_KA $\leq$ timer/2.
+  \item[\st{4.}] Règles AIR -- \textit{Résolu} : \texttt{*.ertms}
+    \arr\ \texttt{@current\_domain} ; sinon pass-through.
+  \item[\st{5.}] Timer de recovery -- \textit{Résolu} :
+    INTEGER(1..180)\,s ; $\leq 5$\,s pour ETCS/ATP.
+  \item[\st{6.}] T\_KA / N -- \textit{Résolu} :
+    INTEGER(1..10)\,s ; $N=2$ ; T\_KA $\leq$ timer/2.
   \item[\st{7.}] Déclenchement liste d'alias -- \textit{Résolu} : immédiat, sans FROP.
   \item[\st{8.}] Extensibilité -- \textit{Résolu} : champ \texttt{serviceType} ouvert.
 \end{enumerate}

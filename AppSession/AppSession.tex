@@ -1,4 +1,4 @@
-% frmcs_appsession_en.tex  — Draft v2.4
+% frmcs_appsession_en.tex  — Draft v2.9
 % XeLaTeX — ETSI FRMCS Application Session Concept (English)
 \documentclass[11pt,a4paper]{article}
 
@@ -8,8 +8,8 @@
 
 \usepackage{geometry}\geometry{a4paper,margin=2.5cm}
 \usepackage{polyglossia}\setdefaultlanguage{english}
-\usepackage[table]{xcolor}
 \usepackage{microtype,booktabs,longtable,array,listings,hyperref,titlesec,enumitem,soul,parskip}
+\usepackage[table]{xcolor}
 \usepackage{pifont}
 \newcommand{\cmark}{\ding{51}}
 
@@ -30,9 +30,11 @@
   \begin{center}\begin{tabular}{|p{0.93\textwidth}|}\hline\rowcolor{noteblue}
 }{\\\hline\end{tabular}\end{center}}
 
-% Subscript shorthand for interface names
+% Interface name shorthand
 \newcommand{\OBAPP}{OB\textsubscript{APP}}
 \newcommand{\TSAPP}{TS\textsubscript{APP}}
+% Arrow substitute: robust in text and table contexts
+\newcommand{\arr}{$\to$}
 
 \newcommand{\svcref}{\texttt{svcSessionRef}}
 \newcommand{\appcall}{\texttt{appSessionId\_call}}
@@ -47,13 +49,13 @@
   \vspace*{3cm}{\sffamily\color{etsiblue}
     {\Huge\bfseries ETSI FRMCS\\[0.4em]Application Session Concept}\\[1.5em]
     {\Large Proposed Modifications to ETSI TS 103\,764, TS 103\,765-3/4/5}\\[2em]
-    {\large Working Contribution -- Draft v2.4}\\[0.5em]
+    {\large Working Contribution -- Draft v2.9}\\[0.5em]
     {\normalsize R2DATO D25.3 -- Concept Paper FRMCS}\\[4em]
     \hrule\vspace{0.5em}
     {\small\textbf{Target documents:} ETSI TS 103\,764 (RT-0095), TS 103\,765-3 (RT-0097),
       TS 103\,765-4 (RT-0099), TS 103\,765-5 (RT-00104)\\[0.3em]
       \textbf{Unchanged documents:} All UIC specifications (FFFIS-7950, FIS-7970,
-      FRS FU-7120, AT-7800, TOBA FRS-7510)}}
+      FRS FU-7120, AT-7800, TOBA FRS-7510, EIRENE FRS, EIRENE SRS)}}
 \end{titlepage}
 
 \tableofcontents\clearpage
@@ -104,8 +106,9 @@ The AIR is an internal Gateway function resolving \texttt{remoteId} to a
 
 \begin{enumerate}[leftmargin=2em]
   \item If \texttt{remoteId} ends with \texttt{.ertms} (ETCS format
-    \texttt{id.ty.cc.ertms}, UIC AT-7800): append the current MCx domain
-    \textrightarrow\ \texttt{id.ty.cc.ertms@current\_domain}.
+    \texttt{id.ty.cc.ertms} as specified in UIC AT-7800 §5.3, which references
+    UNISIG SUBSET-037): append the current MCx domain
+    \arr\ \texttt{id.ty.cc.ertms@current\_domain}.
     Consistent with current UIC specifications; functional baseline (note: non-optimal
     in domain-overlap zones).
   \item Otherwise: pass-through as MCx FA -- identical to historical behaviour.
@@ -114,7 +117,8 @@ The AIR is an internal Gateway function resolving \texttt{remoteId} to a
 \begin{notebox}
   The AIR function is designed as an \textbf{extension point}. Future editions may
   introduce DNS-based or FROP-configured resolution without any change to \OBAPP,
-  \TSAPP, SIP, or UIC specifications (ERJU/OCORA).
+  \TSAPP, SIP, or UIC specifications, in connection with ERJU work on ETCS addressing
+  in FRMCS (UIC EIRENE~SRS, UNISIG SUBSET-037).
 \end{notebox}
 
 \subsection{Initialisation Mechanism}
@@ -125,15 +129,17 @@ cf.\ §\ref{sec:nat}). The calling Gateway drives:
 
 \begin{enumerate}[leftmargin=2em]
   \item \textbf{Initialisation}: POST to ASAS with \texttt{svcSessionId\_1} as
-    correlator; receives \appterm, Ed25519 public key, alias list, multipath policy,
+    correlator; receives \appterm, Ed25519 public key, alias list, MSP policy,
     keepalive period.
   \item \textbf{Additional service sessions}: established per alias list + FROP; each
-    declared to ASAS with signed \texttt{sessionToken}.
+    declared to ASAS with signed \texttt{sessionToken}, enabling mutual authentication
+    independently of the underlying signalling protocol.
   \item \textbf{Keepalive}: sent only if applicative silence $\geq$ T\_KA on a given
     \svcref\ (intelligent keepalive, cf.\ §\ref{sec:ka}).
   \item \textbf{Alias list update}: PATCH sent immediately by terminating GW on any
     new alias or service identifier registration. No configuration required.
-  \item \textbf{Release}: DELETE to ASAS + release each service session per its protocol.
+  \item \textbf{Release}: DELETE to ASAS + release each service session per its
+    signalling protocol.
 \end{enumerate}
 
 \subsection{Application Session Lifecycle}
@@ -141,7 +147,7 @@ cf.\ §\ref{sec:nat}). The calling Gateway drives:
 A session is alive while at least one service session is \texttt{ACTIVE} or
 \texttt{DEGRADED}. When all are lost, a \textbf{recovery timer} starts:
 INTEGER(1..180)\,s (FROP); SHALL be $\leq 5$\,s for sessions carrying ETCS/ATP
-(AT-7800 Annex A.6).
+(AT-7800 Annex A.6). On expiry, the \textbf{application session} is released.
 
 % ── 2. KEY CONCEPTS ─────────────────────────────────────────────────────────
 \section{Key Concepts}
@@ -159,15 +165,22 @@ INTEGER(1..180)\,s (FROP); SHALL be $\leq 5$\,s for sessions carrying ETCS/ATP
   open session & A session that has not been released (unchanged). \\[0.3em]
   AIR & Internal Gateway function resolving \texttt{remoteId} to a service identifier
     (MCx or future critical service). First-edition rules (fully specified):
-    \texttt{*.ertms} \textrightarrow\ \texttt{*.ertms@current\_domain};
-    otherwise pass-through FA MCx. Extension point (DNS/FROP, ERJU/OCORA).
+    \texttt{*.ertms} \arr\ \texttt{*.ertms@current\_domain} (UIC AT-7800~§5.3,
+    ref.\ UNISIG SUBSET-037); otherwise pass-through FA MCx.
+    Extension point for future optimisation (DNS/FROP, in connection with ERJU work
+    on ETCS addressing -- UIC EIRENE~SRS, UNISIG SUBSET-037).
     Not visible to applications. \\[0.3em]
   ASM & Internal Gateway function managing session and service session lifecycle,
-    driving ASAS interactions. Not visible to applications. \\[0.3em]
-  ASAS & REST/TLS API server on the Gateway's post-NAT IP (SD\_PUB\_IP).
-    Trust anchored by first MCx service session. Ed25519 key exchange sufficient --
-    no inter-GW PKI required. Absorbs \texttt{FUTURE\_CRITICAL\_SERVICE} without
-    modification. \\[0.3em]
+    driving ASAS interactions and MSP policy. Not visible to applications. \\[0.3em]
+  ASAS & REST API server exposed by each Gateway on its post-NAT IP (SD\_PUB\_IP).
+    Security is based on per-message Ed25519 authentication; there is no normative
+    requirement for confidentiality of ASAS exchanges between Gateways. HTTP transport
+    MAY be protected by TLS (recommended). Ed25519 key exchange anchored on first MCx
+    service session -- no inter-GW PKI required. \\[0.3em]
+  MSP & Multi Service Path: inter-Gateway mechanism managing multiple parallel service
+    sessions within a single application session, operated by the ASMs. Distinct from
+    transport-level Multipath (RT-00104). Policy (\texttt{mspPolicy}) negotiated at
+    ASAS initialisation: DUPLICATION, RECOVERY or LOADBALANCE. \\[0.3em]
   Calling GW & GW initiating \texttt{POST /sessions} via \OBAPP.
     Derives ASAS IP from post-NAT SIP source IP. \\[0.3em]
   Terminating GW & GW hosting destination application. Exposes ASAS. Builds alias
@@ -180,10 +193,10 @@ INTEGER(1..180)\,s (FROP); SHALL be $\leq 5$\,s for sessions carrying ETCS/ATP
     of service type. For MCx: FA or MC Service User ID. For future critical services:
     any identifier the terminating Gateway can associate with the destination user. \\[0.3em]
   recovery timer & INTEGER(1..180)\,s (FROP); SHALL be $\leq 5$\,s for ETCS/ATP
-    (AT-7800 Annex A.6). Session released on expiry. \\[0.3em]
+    (AT-7800 Annex A.6). Application session released on expiry. \\[0.3em]
   T\_KA & Keepalive period: INTEGER(1..10)\,s (application profile).
     Rule: T\_KA $\leq$ recovery\_timer\,/\,2 ($\leq 2.5$\,s for ETCS/ATP).
-    $N = 2$ consecutive failures (fixed) \textrightarrow\ \texttt{DEGRADED}. \\
+    $N = 2$ consecutive failures (fixed) \arr\ \texttt{DEGRADED}. \\
   \bottomrule
 \end{longtable}
 
@@ -198,27 +211,36 @@ INTEGER(1..180)\,s (FROP); SHALL be $\leq 5$\,s for sessions carrying ETCS/ATP
     May change during recovery.
 \end{itemize}
 
-\subsection{Trust Model and Authentication}
+\subsection{Authentication Model}
 \label{sec:trust}
 
 \textbf{The first MCx service session is a trusted service already responsible for
-identifying the parties} -- its establishment is a sufficient trust anchor.
+identifying the parties} -- its establishment is a sufficient authentication anchor.
+There is no normative requirement for confidentiality of ASAS exchanges between
+Gateways: the ASAS operates in a railway inter-GW environment where protection of
+session metadata is not a normative prerequisite.
 
-\subsubsection*{Level 1 -- Channel Confidentiality (TLS 1.3)}
+\subsubsection*{Level 1 -- HTTP Transport (TLS recommended)}
 
-Server certificate may be \textbf{self-signed} -- no inter-operator PKI required.
+The ASAS HTTP transport MAY be protected by TLS~1.3 (recommended for transport
+integrity). Server certificate may be \textbf{self-signed} -- no inter-operator PKI
+required. TLS is not normative at this level; normative authentication is provided
+by Levels~2 and~3. The mTLS option is possible if a bilateral OOB FSNNI agreement
+so provides (FROP).
 
 \begin{notebox}
   \textbf{FSNNI topology hiding note}: a potential intermediate domain performing
-  topology hiding does not compromise trust -- the Ed25519 \texttt{sessionToken}
-  provides per-message integrity regardless of the network path. The only constraint
-  is ASAS reachability on SD\_PUB\_IP (covered by §\ref{sec:nat}).
+  topology hiding does not compromise authentication -- the Ed25519
+  \texttt{sessionToken} provides per-message integrity regardless of the network
+  path. The only constraint is ASAS reachability on SD\_PUB\_IP
+  (covered by §\ref{sec:nat}).
 \end{notebox}
 
-\subsubsection*{Level 2 -- Trust Anchor (First MCx Service Session)}
+\subsubsection*{Level 2 -- Authentication Anchor (First MCx Service Session)}
 
 The MC Service Server authenticated the calling Gateway before accepting the session.
-Ed25519 public key exchange over this channel bootstraps trust.
+Ed25519 public key exchange over this channel bootstraps authentication: any key
+received at ASAS initialisation is authentic by construction.
 
 \subsubsection*{Level 3 -- Per-Message Authentication (Ed25519 sessionToken)}
 
@@ -240,7 +262,7 @@ no external dependency.
 \begin{itemize}[leftmargin=2em]
   \item \textbf{T\_KA}: INTEGER(1..10)\,s (application profile);
     SHALL be $\leq 2.5$\,s for ETCS/ATP.
-  \item \textbf{$N = 2$} consecutive failures (fixed) \textrightarrow\ \texttt{DEGRADED}.
+  \item \textbf{$N = 2$} consecutive failures (fixed) \arr\ \texttt{DEGRADED}.
   \item Recovery: new service session declared with same \svcref\ + signed token.
 \end{itemize}
 
@@ -259,7 +281,8 @@ Port configurable in FROP.
   Internal MCx bearer & session & \textbf{service session} \\
   Internal MCx establishment & session establishment & \textbf{service session} establishment \\
   Internal MCx release & session release & \textbf{service session} release \\
-  Internal Multipath procedure & Multipath session & \textbf{Multipath service session} \\
+  Inter-GW multi-path (service session level) & Multipath session & \textbf{Multi Service Path (MSP)} \\
+  Transport-level Multipath (RT-00104) & Multipath & \textbf{Multipath} (unchanged) \\
   \OBAPP/\TSAPP\ identifier & \texttt{sessionId} & \textbf{unchanged} \\
   Application request & \texttt{POST /sessions}, \texttt{openSession*} & \textbf{unchanged} \\
   Incoming notification & \texttt{incomingSessionNotif*} & \textbf{unchanged} \\
@@ -278,17 +301,21 @@ ASAS inter-GW API, agnostic to service session type. Not visible to applications
 Does not modify any UIC specification or service protocol. Absorbs
 \texttt{FUTURE\_CRITICAL\_SERVICE} without modification of this annex.
 
-\paragraph{X.2 -- Transport and Trust Model}
+\paragraph{X.2 -- Transport and Authentication}
 
-\textbf{Transport:} TLS 1.3, HTTP/2 + JSON. Port: FROP.
+\textbf{Transport:} HTTP/2 + JSON. Port: FROP. HTTP transport MAY be protected by
+TLS~1.3 (recommended); there is no normative requirement for confidentiality of ASAS
+exchanges between Gateways.
 
-\textbf{Server certificate:} Self-signed or any locally-deployed CA.
+\textbf{Server certificate (if TLS):} Self-signed or any locally-deployed CA --
+no inter-operator PKI required.
 
 \textbf{ASAS IP address:} Post-NAT source IP of first service session SIP signalling
 (SD\_PUB\_IP, RT-0097 §6.2.2.4). No SIP header extraction required.
 
-\textbf{Trust model:} First MCx service session anchor + Ed25519 keys.
-No inter-GW PKI required.
+\textbf{Normative authentication:} First MCx service session anchor + Ed25519 keys
+exchanged over that trusted channel. All subsequent ASAS exchanges authenticated by
+Ed25519 signature. No inter-GW PKI required.
 
 \textbf{Token serialisation:} UTF-8 fields concatenated with \texttt{0x00}
 separators (see §\ref{sec:trust}).
@@ -305,12 +332,13 @@ T\_KA INTEGER(1..10)\,s (application profile); $N = 2$ (fixed).
 { "appSessionId_call": "uuid-v4", "svcSessionRef_1": "uuid-v4",
   "svcSessionId_1": "native-id", "callingPublicKey": "base64(Ed25519)",
   "keepaliveReq": 2,
-  "mpCapabilities": { "supportedPolicies": ["DUPLICATION","RECOVERY"], "maxPaths": 4 } }
+  "mspCapabilities": { "supportedPolicies": ["DUPLICATION","RECOVERY","LOADBALANCE"],
+                       "maxPaths": 4 } }
 
 // Response 200 OK
 { "appSessionId_term": "uuid-v4", "svcSessionRef_1": "uuid-v4",
   "terminatingPublicKey": "base64(Ed25519)", "keepaliveAccepted": 2,
-  "mpPolicy": { "policy": "DUPLICATION|RECOVERY|LOADBALANCE|NONE", "activePaths": 2 },
+  "mspPolicy": { "policy": "DUPLICATION|RECOVERY|LOADBALANCE|NONE", "activePaths": 2 },
   "advertisedAliases": [{ "svcSessionRef": "uuid-v4",
     "serviceType": "MCX|FUTURE_CRITICAL_SERVICE",
     "serviceDomain": "string", "serviceId": "string",
@@ -398,11 +426,14 @@ registration during an active session. No FROP configuration required.
 
 \begin{longtable}{p{5cm} p{6.5cm} p{2cm}}
   \toprule Document & Nature of modification & UIC specs \\ \midrule \endhead
-  \textbf{ETSI TS 103\,764} & Session + service session + AIR + ASAS + service identifier
-    (§3.1) + ASM + \textbf{Annex X} & \\
-  \textbf{ETSI TS 103\,765-3} & Systematic replacement + Step 1 (AIR→service id + SD\_PUB\_IP) & unchanged \\
-  \textbf{ETSI TS 103\,765-4} & Systematic replacement + Step 0 + immediate alias list mgmt & unchanged \\
-  \textbf{ETSI TS 103\,765-5} & Systematic replacement + Multipath binding & unchanged \\
+  \textbf{ETSI TS 103\,764} & Session + service session + AIR + MSP + ASAS +
+    service identifier (§3.1) + ASM + \textbf{Annex X} & \\
+  \textbf{ETSI TS 103\,765-3} & Systematic replacement + Step 1
+    (AIR \arr\ service id + SD\_PUB\_IP) + MSP policy & unchanged \\
+  \textbf{ETSI TS 103\,765-4} & Systematic replacement + Step 0 +
+    immediate alias list mgmt + MSP & unchanged \\
+  \textbf{ETSI TS 103\,765-5} & Systematic replacement + MSP binding +
+    Multipath/MSP distinction & unchanged \\
   \textbf{UIC FFFIS-7950} & \textbf{No modification} & \cmark \\
   \textbf{UIC FIS-7970} & \textbf{No modification} & \cmark \\
   \textbf{UIC FRS FU-7120} & \textbf{No modification} & \cmark \\
@@ -422,9 +453,11 @@ All open points are resolved. The document is ready for ETSI contribution.
   \item[\st{2.}] FSNNI multi-hop trust -- \textit{Resolved} (§\ref{sec:trust}).
   \item[\st{3.}] sessionToken serialisation -- \textit{Resolved} (§\ref{sec:trust} + §X.2).
   \item[\st{4.}] AIR rules -- \textit{Resolved}: \texttt{*.ertms}
-    \textrightarrow\ \texttt{@current\_domain}; otherwise pass-through.
-  \item[\st{5.}] Recovery timer -- \textit{Resolved}: INTEGER(1..180)\,s; $\leq 5$\,s for ETCS/ATP.
-  \item[\st{6.}] T\_KA / N -- \textit{Resolved}: INTEGER(1..10)\,s; $N=2$; T\_KA $\leq$ timer/2.
+    \arr\ \texttt{@current\_domain}; otherwise pass-through.
+  \item[\st{5.}] Recovery timer -- \textit{Resolved}: INTEGER(1..180)\,s;
+    $\leq 5$\,s for ETCS/ATP.
+  \item[\st{6.}] T\_KA / N -- \textit{Resolved}: INTEGER(1..10)\,s; $N=2$;
+    T\_KA $\leq$ timer/2.
   \item[\st{7.}] Alias list triggering -- \textit{Resolved}: immediate, no FROP.
   \item[\st{8.}] Extensibility -- \textit{Resolved}: \texttt{serviceType} open field.
 \end{enumerate}

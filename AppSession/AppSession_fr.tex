@@ -283,6 +283,38 @@ sans dépendance externe.
   \bottomrule
 \end{longtable}
 
+\section{Compatibilité avec les IFDT single-UE (RT260101021)}
+\subsection{Contexte}
+La contribution UIC RT260101021 étudie trois approches pour la transition inter-domaine FRMCS (Inter-FRMCS Domain Transition, IFDT) dans un contexte single-UE (un seul RM embarqué), applicable aux applications LC (ETCS/ATO). Elle propose trois options — A (double MC ID), B (migration de MC ID unique), C (sessions parallèles avec LBO/HR) — et identifie la notion de sessionId comme levier possible pour la continuité de service lors des transitions.
+
+La présente proposition est orthogonale aux IFDT : elle opère au niveau de la session applicative entre GW, indépendamment des événements de mobilité 5G sous-jacents.
+
+\subsection{Analyse par option IFDT}
+\paragraph{Option A — Double MC ID (make-before-break)}
+L'EVC maintient MC ID1 dans le FSD servant et établit MC ID2 dans le FSD cible en parallèle. Chaque MC ID correspond à une service session distincte au niveau de la GW OB.
+
+Compatibilité : native. Le mécanisme MSP est précisément conçu pour ce scénario : les deux service sessions (MC ID1 vers FSD servant, MC ID2 vers FSD cible) coexistent au sein de la même session applicative. La politique MSP RECOVERY permet à l'ASM de basculer le plan de données applicatif de la service session active vers la service session de secours dès que celle-ci est disponible, sans interruption visible pour l'EVC. Le svcSessionRef de la service session MC ID2 est déclaré à l'ASAS lors de son établissement (§X.4), ce qui réalise précisément le "sessionId concept for recovery" identifié dans RT260101021.
+
+\paragraph{Option B — Migration de MC ID unique}
+Après reselection PLMN, MC ID1 migre vers le FSD cible (MC ID1a) ; il y a une interruption pendant la migration puis rétablissement.
+
+Compatibilité : complète, via le mécanisme de recovery. La perte de la service session MC ID1 (lors de la migration) déclenche le timer de recovery côté ASM OB. Dès que MC ID1a est enregistré dans le FSD cible, la GW OB établit une nouvelle service session vers MC ID1a et la déclare à l'ASAS avec le même svcSessionRef + replSvcSessionRef (recovery token, §X.4). La session applicative EVC est reprise sans interruption observable, à condition que la durée totale de migration reste dans le timer de recovery (≤ 5 s pour ETCS). L'interruption propre à l'Option B est donc absorbée par le timer de recovery — ce qui est cohérent avec la contrainte AT-7800 Annex A.6.
+
+\paragraph{Option C — Sessions parallèles LBO + HR (SSC mode 1)}
+Un chemin LBO (via le FSD cible) et un chemin HR (préservé via le FSD servant) coexistent ; N14/N38 et cross-domain N5/Rx sont requis au niveau 5GC.
+
+Compatibilité : complète, avec valeur ajoutée. Les deux chemins LBO et HR correspondent exactement à deux service sessions parallèles dans la session applicative, gérées par le MSP en mode DUPLICATION. L'ASAS fournit le corrélateur applicatif ({appSessionId\_call}\-/\-{\_term}) qui lie les deux service sessions, ce que RT260101021 identifie comme un besoin pour la "multi-path switching logic". La complexité inter-domaine (N14, N38, N5/Rx cross-domain) reste entièrement au niveau 5GC et n'est pas exposée à l'ASAS. La décision de bascule entre LBO et HR reste locale à l'ASM OB, pilotée par les statuts ACTIVE/DEGRADED retournés par le keepalive ASAS (§X.5).
+
+Note sur les Options A et C : les deux options offrent une continuité applicative sans interruption pour l'EVC, mais par des mécanismes MSP distincts. L'Option A utilise le mode MSP RECOVERY (bascule séquentielle : la deuxième service session est déclarée en avance mais le plan de données ne bascule qu'au moment de la perte de la première) et reste contrainte par le timer de recovery (≤ 5 s pour ETCS/ATP). L'Option C utilise le mode MSP DUPLICATION (parallélisme natif : les deux service sessions sont actives simultanément) et est la plus directement supportée par le concept de session applicative : les deux service sessions coexistent naturellement au sein de la session sans aucun timer de recovery, et la bascule est instantanée. L'Option C est donc la plus robuste des deux pour ETCS, au prix d'une complexité 5GC plus élevée (N14, N38, N5/Rx cross-domain).
+
+\subsection{Apport à la formalisation single-UE dans ETSI TS}
+RT260101021 demande au TC RT d'analyser les options single-UE et d'envisager leur formalisation dans les TS ETSI avant RT\#102. La présente proposition fournit précisément les briques manquantes identifiées dans cette contribution :
+
+Le sessionId concept for recovery/transfer (mentionné dans RT260101021) correspond au couple (appSessionId\_call, appSessionId\_term) + svcSessionRef immuable de la présente proposition.
+Le GRE tunnel switching évoqué dans RT260101021 est couvert par le mécanisme de recovery ASAS (§X.4, replSvcSessionRef) qui permet de rattacher un nouveau bearer GRE à la session applicative existante.
+La multi-path switching logic (Option C) est couverte par la politique MSP DUPLICATION négociée à l'initialisation ASAS.
+La présente proposition peut donc servir de base normative commune aux trois options IFDT single-UE, en évitant de dupliquer la logique de corrélation et de recovery dans chaque option. Il est recommandé de le signaler explicitement dans la réponse ETSI à RT260101021.
+
 % ── 4. MODIFICATIONS ETSI ───────────────────────────────────────────────────
 \section{Modifications ETSI proposées}
 

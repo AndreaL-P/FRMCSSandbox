@@ -64,6 +64,7 @@
 \section{Architectural Principle}
 
 \subsection{Reformulation of the Session Concept}
+\label{concept}
 
 In the ETSI TSs, \textbf{"session"} previously referred to the MCData IPcon tunnel
 established by the Gateway on behalf of an application (what this proposal calls a
@@ -272,7 +273,6 @@ no external dependency.
 \textbf{ASAS address rule (resolved)}: post-NAT source IP of first service session
 SIP signalling (SD\_PUB\_IP, RT-0097 §6.2.2.4). No SIP header extraction required.
 Port configurable in FROP.
-
 % ── 3. TERMINOLOGY REPLACEMENT ──────────────────────────────────────────────
 \section{Terminology Replacement Rule in ETSI TSs}
 
@@ -290,19 +290,41 @@ Port configurable in FROP.
   Application state & \texttt{open session} & \textbf{unchanged} \\
   \bottomrule
 \end{longtable}
-
+% ── 4. 1UE IFDT ──────────────────────────────────────────────
+\section{Compatibility with single-UE IFDT (RT260101021)}
+\subsection{Context}
+UIC contribution RT260101021 examines three approaches for Inter-FRMCS Domain Transition (IFDT) in a single-UE context (a single onboard RM), applicable to LC applications (ETCS/ATO). It proposes three options — A (dual MC ID), B (migration of a single MC ID), C (parallel sessions with LBO/HR) — and introduces the notion of sessionId as a possible enabler for service continuity during transitions.
+The present proposal is orthogonal to IFDT: it operates at the application session level between GWs, independently of underlying 5G mobility events.
+\subsection{Analysis per IFDT option}
+\paragraph{Option A — Dual MC ID (make-before-break)}
+The EVC maintains MC ID1 in the serving FSD and establishes MC ID2 in the target FSD in parallel. Each MC ID corresponds to a distinct service session at the OB GW level.
+Compatibility: native. The MSP mechanism is precisely designed for this scenario: both service sessions (MC ID1 towards the serving FSD, MC ID2 towards the target FSD) coexist within the same application session. The MSP RECOVERY policy allows the ASM to switch the application data plane from the active service session to the backup service session as soon as it becomes available, without any visible interruption for the EVC. The svcSessionRef of the MC ID2 service session is declared to the ASAS upon establishment (§x.4 - \ref{x4}), which precisely implements the “sessionId concept for recovery” identified in RT260101021.
+\paragraph{Option B — Single MC ID migration}
+After PLMN reselection, MC ID1 migrates to the target FSD (MC ID1a); there is an interruption during migration followed by re-establishment.
+Compatibility: full, via the recovery mechanism. The loss of the MC ID1 service session (during migration) triggers the recovery timer on the OB ASM side. As soon as MC ID1a is registered in the target FSD, the OB GW establishes a new service session towards MC ID1a and declares it to the ASAS with the same svcSessionRef + replSvcSessionRef (recovery token, §x.4 - \ref{x4}). The EVC application session is resumed without observable interruption, provided that the total migration duration remains within the recovery timer (≤ 5 s for ETCS). The interruption inherent to Option B is therefore absorbed by the recovery timer — which is consistent with constraint AT-7800 Annex A.6.
+\paragraph{Option C — Parallel LBO + HR sessions (SSC mode 1)}
+An LBO path (via the target FSD) and an HR path (preserved via the serving FSD) coexist; N14/N38 and cross-domain N5/Rx are required at the 5GC level.
+Compatibility: full, with added value. The LBO and HR paths correspond exactly to two parallel service sessions within the application session, managed by MSP in DUPLICATION mode. The ASAS provides the application correlator (appSessionId\_call\-/\-appSessionId\_term) which links the two service sessions, which RT260101021 identifies as a requirement for “multi-path switching logic”. The cross-domain complexity (N14, N38, N5/Rx) remains entirely within the 5GC and is not exposed to the ASAS. The decision to switch between LBO and HR remains local to the OB ASM, driven by ACTIVE/DEGRADED statuses returned by the ASAS keepalive (§x.5 - \ref{x5}).
+Note on Options A and C: both options provide uninterrupted application continuity for the EVC, but through different MSP mechanisms. Option A uses MSP RECOVERY mode (sequential switchover: the second service session is pre-declared but the data plane switches only when the first is lost) and remains constrained by the recovery timer (≤ 5 s for ETCS/ATP). Option C uses MSP DUPLICATION mode (native parallelism: both service sessions are active simultaneously) and is the most directly aligned with the concept of an application session: both service sessions naturally coexist within the session without any recovery timer, and switching is instantaneous. Option C is therefore the more robust of the two for ETCS, at the cost of higher 5GC complexity (N14, N38, cross-domain N5/Rx).
+\subsection{Contribution to single-UE formalisation in ETSI TS}
+RT260101021 asks TC RT to analyse single-UE options and consider their formalisation in ETSI TS before RT\#102. The present proposal provides precisely the missing building blocks identified in that contribution:
+The sessionId concept for recovery/transfer (mentioned in RT260101021) corresponds to the pair (appSessionId\_call, appSessionId\_term) + immutable svcSessionRef of the present proposal.
+The GRE tunnel switching mentioned in RT260101021 is covered by the ASAS recovery mechanism (§X.4 - \ref{x4}, replSvcSessionRef), which allows a new GRE bearer to be attached to the existing application session.
+The multi-path switching logic (Option C) is covered by the MSP DUPLICATION policy negotiated at ASAS initialisation.
+The present proposal can therefore serve as a common normative basis for all three single-UE IFDT options, avoiding duplication of correlation and recovery logic in each option. It is recommended to explicitly highlight this in the ETSI response to RT260101021.
 % ── 4. PROPOSED ETSI MODIFICATIONS ──────────────────────────────────────────
 \section{Proposed ETSI Modifications}
 
 \subsection{ETSI TS 103\,764 (RT-0095) -- Normative Annex X}
 
 \paragraph{X.1 -- Scope}
+\label{x1}
 ASAS inter-GW API, agnostic to service session type. Not visible to applications.
 Does not modify any UIC specification or service protocol. Absorbs
 \texttt{FUTURE\_CRITICAL\_SERVICE} without modification of this annex.
 
 \paragraph{X.2 -- Transport and Authentication}
-
+\label{x2}
 \textbf{Transport:} HTTP/2 + JSON. Port: FROP. HTTP transport MAY be protected by
 TLS~1.3 (recommended); there is no normative requirement for confidentiality of ASAS
 exchanges between Gateways.
@@ -326,7 +348,7 @@ T\_KA INTEGER(1..10)\,s (application profile); $N = 2$ (fixed).
 \textbf{mTLS option:} If bilateral OOB FSNNI agreement (FROP).
 
 \paragraph{X.3 -- Initialisation (\texttt{POST /asas/appsessions})}
-
+\label{x3}
 \begin{lstlisting}[language={}]
 // Request
 { "appSessionId_call": "uuid-v4", "svcSessionRef_1": "uuid-v4",
@@ -346,7 +368,7 @@ T\_KA INTEGER(1..10)\,s (application profile); $N = 2$ (fixed).
 \end{lstlisting}
 
 \paragraph{X.4 -- Service Session Declaration / Recovery}
-
+\label{x4}
 \begin{lstlisting}[language={}]
 // Request
 { "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
@@ -362,6 +384,7 @@ T\_KA INTEGER(1..10)\,s (application profile); $N = 2$ (fixed).
 \end{lstlisting}
 
 \paragraph{X.5 -- Keepalive}
+\label{x5}
 Sent only if applicative silence $\geq$ T\_KA on listed \svcref.
 
 \begin{lstlisting}[language={}]
@@ -371,6 +394,7 @@ Sent only if applicative silence $\geq$ T\_KA on listed \svcref.
 \end{lstlisting}
 
 \paragraph{X.6 -- Alias List Update (\texttt{PATCH .../aliases})}
+\label{x6}
 Sent \textbf{immediately} by terminating GW on any new alias or service identifier
 registration during an active session. No FROP configuration required.
 
@@ -383,14 +407,14 @@ registration during an active session. No FROP configuration required.
 \end{lstlisting}
 
 \paragraph{X.7 -- Release (\texttt{DELETE .../appsessions/\{id\}})}
-
+\label{x7}
 \begin{lstlisting}[language={}]
 { "appSessionId_call": "uuid-v4", "appSessionId_term": "uuid-v4",
   "reason": "NORMAL|ERROR|TIMEOUT" }
 \end{lstlisting}
 
 \paragraph{X.8 -- State Machines}
-
+\label{x8}
 \textbf{Session:}
 \begin{lstlisting}[language={}]
 [CREATING]    -- 200 OK           --> [ESTABLISHED]
@@ -411,7 +435,7 @@ registration during an active session. No FROP configuration required.
 \end{lstlisting}
 
 \paragraph{X.9 -- Error Mapping to \OBAPP\ Causes}
-
+\label{x9}
 \begin{longtable}{p{5.5cm} p{8cm}}
   \toprule ASAS cause & \texttt{openSessionFinalAnswerNotif} cause \\ \midrule \endhead
   ASAS timeout & \texttt{MCX\_ENDPOINT\_NOT\_REACHABLE} \\
